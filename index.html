@@ -105,13 +105,17 @@
             const line = document.createElement("div");
             // TODO
             //console.log("Source is:", text);
-            text = markdown(text)
-            // nd: a _hacky_ way to allow us to maintain 
+            text = markdown(text);
+            // nd: a _hacky_ way to allow us to maintain
             // <div ...> ... </div> html code in the source code
             // (by default markdown() escapes html tags; e.g. it converts < and > to &lt; and &gt; )
-            text = text.replace('&lt;/div&gt;','</div>').replace(/&lt;div (.*)&gt;/,'<div $1>').replace('<p></div></p>','</div>').replace(/<p>(<div [^>]*>)<\/p>/,'$1')
+            text = text
+               .replace("&lt;/div&gt;", "</div>")
+               .replace(/&lt;div (.*)&gt;/, "<div $1>")
+               .replace("<p></div></p>", "</div>")
+               .replace(/<p>(<div [^>]*>)<\/p>/, "$1");
             //console.log("----------------"); console.log("Restored div text is:"); console.log(text); console.log("----------------")
-            line.innerHTML = text
+            line.innerHTML = text;
             const mainBody = document.getElementById("website_content");
             mainBody.appendChild(line);
          }
@@ -378,6 +382,7 @@
             // this is the first loop which iterates through an array of arrays
             // Each inner array is a step which consists of lines that need to be parsed
             linesPerStep.forEach((step) => {
+               let end = false;
                promise = promise.then(() => {
                   console.log("New Step");
                   // iterates the inner arrays line by line
@@ -395,6 +400,9 @@
                      } else if (/^\{\s*showif/.test(line.trim())) {
                         console.log("This line gets in: ", line);
                         i = checkForShowIf(step, i);
+                     } else if (line.trim().startsWith("{end}")) {
+                        console.log("end of procedure");
+                        end = true;
                      } else {
                         const regex = /\{\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*\}/g;
                         if (line.match(regex)) {
@@ -410,7 +418,11 @@
                   return new Promise((resolve) => {
                      const divForButton = document.createElement("div");
                      const button = document.createElement("button");
-                     button.innerText = "NEXT";
+                     if (end) {
+                        button.innerText = "FINISH";
+                     } else {
+                        button.innerText = "NEXT";
+                     }
                      button.addEventListener("click", () => {
                         resolve();
                         button.remove();
@@ -651,8 +663,8 @@
             if (savedInput && inputBox) {
                inputBox.value = savedInput; // Load saved input into textarea
             }
-         }      
-         
+         }
+
          function storeInput() {
             // Remove all <style> elements
             const styleElements = document.querySelectorAll("style");
@@ -777,11 +789,11 @@
                </div>
             `;
          }
-         
-        // Call initializePage when the script runs
-        window.onload = initializePage;
+
+         // Call initializePage when the script runs
+         window.onload = initializePage;
       </script>
-      
+
       <!-- <script src="mainTest.js" defer></script> -->
       <script>
          console.log(window.storedString);
