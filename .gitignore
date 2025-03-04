@@ -1,0 +1,9 @@
+# Node modules (installed dependencies)
+node_modules/
+
+# Temporary or system files
+.DS_Store  # macOS metadata
+Thumbs.db  # Windows thumbnail cache
+
+# Editor-specific files (if using VSCode)
+.vscode/
