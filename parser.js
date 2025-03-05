@@ -94,8 +94,9 @@ function questionParsing(line) {
          type = type.trim();
          stepContent.appendChild(
             createInputQuestion(match[1], type, (answer) => {
-               match[2] = answer;
+               variables[match[2]] = answer;
                console.log(match[2]);
+               console.log(variables);
                currentStep++;
             })
          );

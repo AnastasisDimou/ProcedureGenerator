@@ -34,7 +34,7 @@ export function createInputQuestion(questionText, type, callback) {
          event.preventDefault();
          const inputValue = input.value;
          callback(inputValue);
-         focusNextQuestion();
+         // focusNextQuestion();
       }
    });
 
@@ -90,7 +90,7 @@ export function createMultipleChoiceQuestion(questionText, options, callback) {
          button.style.outline = `2px solid #ffffff`;
 
          callback(button.innerText);
-         // focusNextQuestion();?
+         // focusNextQuestion();
       });
    });
    return questionContainer;
