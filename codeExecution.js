@@ -149,6 +149,9 @@ export function executeShowIf(
 
    let i;
 
+   console.log("Code for the show if: ");
+   console.log(code);
+
    for (i = 0; i < code.length; i++) {
       if (i === 0) {
          code[i] = code[i].replace(regexForDeleting, "");
@@ -167,16 +170,16 @@ export function executeShowIf(
          }
       } else {
          if (/^\{\s*showif/.test(code[i].trim())) {
-            i =
-               executeShowIf(code, variables, i, stepContent, globalIndex) -
-               globalIndex;
+            i += executeShowIf(code, variables, i, stepContent, globalIndex);
             continue;
          }
-         if (code[i].trim() != "}" && code[i] != "") {
+         if (code[i].trim() != "}" && code[i].trim() != "") {
+            console.log("This is the index of the line: ", i);
             console.log("This get's printed: ", code[i]);
             stepContent.appendChild(createText(code[i].trim()));
          }
       }
    }
-   return globalIndex + i;
+   console.log("I that is being return is: ", i);
+   return i;
 }
