@@ -172,8 +172,9 @@ export function executeShowIf(
                globalIndex;
             continue;
          }
-         if (code[i] != "}" && code[i] != "") {
-            stepContent.appendChild(createText(code[i]));
+         if (code[i].trim() != "}" && code[i] != "") {
+            console.log("This get's printed: ", code[i]);
+            stepContent.appendChild(createText(code[i].trim()));
          }
       }
    }
