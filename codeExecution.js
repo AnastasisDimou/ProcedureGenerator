@@ -1,6 +1,5 @@
 import { joinToArray } from "./parser.js";
 import { createText } from "./procedures.js";
-import { joinToString } from "./parser.js";
 
 export function findBlockEnd(text, startIndex) {
    let braceCount = 0;
@@ -59,9 +58,6 @@ function extractVariablesAndCleanCode(userCode, variables) {
 
          // Remove the variable declaration
          lines[i] = "";
-         console.log(`Match Found: "${match[0]}"`);
-         console.log(`Line Number: ${i}`);
-         console.log(`Line Content: "${line}"\n`);
       }
    }
 
@@ -134,13 +130,7 @@ export function runUserCode(userCode, variables) {
    Object.assign(variables, updatedVariables);
 }
 
-export function executeShowIf(
-   ifCode,
-   variables,
-   startIndex,
-   stepContent,
-   globalIndex
-) {
+export function executeShowIf(ifCode, variables, startIndex, stepContent) {
    // TODO
    // check for how many = are in the if statement to be sure
    const end = findBlockEnd(ifCode, startIndex);
@@ -149,9 +139,6 @@ export function executeShowIf(
    const regexForEnd = /\{end\}/;
 
    let i;
-
-   console.log("Code for the show if: ");
-   console.log(code);
 
    for (i = 0; i < code.length; i++) {
       if (i === 0) {
@@ -162,9 +149,7 @@ export function executeShowIf(
             `return ${code[i]};`
          );
          // get the result
-         console.log("Variables are: ", variables);
          const result = evaluate(...Object.values(variables));
-         console.log("The result of the statement: ", code[i], "was: ", result);
          if (result) {
             continue;
          } else {
@@ -185,12 +170,9 @@ export function executeShowIf(
             return -1;
          }
          if (code[i].trim() != "}" && code[i].trim() != "") {
-            console.log("This is the index of the line: ", i);
-            console.log("This get's printed: ", code[i]);
             stepContent.appendChild(createText(code[i].trim()));
          }
       }
    }
-   console.log("I that is being return is: ", i);
    return i;
 }

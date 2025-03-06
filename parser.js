@@ -4,6 +4,7 @@ import { executeShowIf } from "./codeExecution.js";
 import { createText } from "./procedures.js";
 import { createInputQuestion } from "./procedures.js";
 import { createMultipleChoiceQuestion } from "./procedures.js";
+import { renderHistory } from "./renderHistory.js";
 
 let allSteps;
 let finished;
@@ -41,31 +42,17 @@ function questionParsing(line) {
       /^(.*?)\[(\w+)\]\s*\(\s*One of:\s*([\w\s,]+)\)$/;
 
    if (regexForMultipleChoice.test(line)) {
-      console.log(
-         "-------------------------------------------------------------"
-      );
       const str = line.substring(2).trim();
-      console.log("mutliple choice: " + str);
       const regexForSpliting = /^(.*)\[(.*?)\]\s*\(\s*One of:\s*(.*?)\)$/;
       // TODO add no numbers at the start of the variable
       const match = str.match(regexForSpliting);
       // making the array that holds the options
       const questions = match[3].split(",").map((option) => option.trim());
       // console.log("Question:", match[1]);
-      console.log("Field:", match[2]);
       if (variables.hasOwnProperty(match[2])) {
-         console.log("IT IS IN VARIABLES");
          stepContent.appendChild(
             createMultipleChoiceQuestion(match[1], questions, (answer) => {
                variables[match[2]] = answer;
-               console.log(
-                  "The variable ",
-                  match[2],
-                  "is now: ",
-                  variables[match[2]]
-               );
-               console.log("All variables are: ");
-               console.log(variables);
                currentStep++;
             })
          );
@@ -73,37 +60,25 @@ function questionParsing(line) {
    } else {
       // Normal input question
       const str = line.substring(2).trim();
-
-      console.log(
-         "-------------------------------------------------------------"
-      );
-      console.log("Input question");
       // regex that splits the question in three parts.
       // The actual question, the variable, and the question type;
       // TODO no numbers at the start of the variable
       const regexForSpliting = /^(.*?)\[(.*?)\]\s*(?:\(([^)]+)\))?$/;
 
       const match = str.match(regexForSpliting);
-      console.log("Question: ", match[1]);
-      console.log("Field: ", match[2]);
       let type = match[3] || "text";
-      console.log("Type: ", type);
 
       if (match[2] in variables) {
-         console.log("We creating the type: ", type);
          type = type.trim();
          stepContent.appendChild(
             createInputQuestion(match[1], type, (answer) => {
                variables[match[2]] = answer;
-               console.log(match[2]);
-               console.log(variables);
                currentStep++;
             })
          );
       }
    }
    allSteps++;
-   console.log("All steps are: " + allSteps);
 }
 
 function checkForCodeInLine(line) {
@@ -112,22 +87,6 @@ function checkForCodeInLine(line) {
       regex,
       (_, varName) => variables[varName] ?? `{${varName}}`
    );
-}
-
-// Example "Next" button in your HTML:
-// <button id="nextButton">Next</button>
-// <div id="website_content"></div>
-
-const nextButton = document.getElementById("nextButton");
-
-function waitForNextClick() {
-   return new Promise((resolve) => {
-      const handleClick = () => {
-         nextButton.removeEventListener("click", handleClick);
-         resolve();
-      };
-      nextButton.addEventListener("click", handleClick);
-   });
 }
 
 // Helper to create and await a new "Next" button
@@ -150,8 +109,8 @@ export async function parser(steps) {
    const contentContainer = document.getElementById("website_content");
    const parsedContent = [];
    let end = false;
-
    let stepNumber = 0;
+
    for (const step of linesPerStep) {
       // Create a container for this step
       stepContent = document.createElement("div");
@@ -186,7 +145,6 @@ export async function parser(steps) {
                line = checkForCodeInLine(line);
             }
             if (line) {
-               console.log("This line will get printed: ", line);
                stepContent.appendChild(createText(line));
             }
          }

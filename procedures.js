@@ -14,8 +14,6 @@ function focusNextQuestion() {
             index++;
          }
       }
-      console.log(focusableElements);
-      console.log(currentStep);
       focusableElements[currentStep].focus();
    }
 }
@@ -45,7 +43,6 @@ export function createInputQuestion(questionText, type, callback) {
 export function createText(text) {
    const line = document.createElement("div");
    // TODO
-   //console.log("Source is:", text);
    text = markdown(text);
    // nd: a _hacky_ way to allow us to maintain
    // <div ...> ... </div> html code in the source code
@@ -55,7 +52,6 @@ export function createText(text) {
       .replace(/&lt;div (.*)&gt;/, "<div $1>")
       .replace("<p></div></p>", "</div>")
       .replace(/<p>(<div [^>]*>)<\/p>/, "$1");
-   //console.log("----------------"); console.log("Restored div text is:"); console.log(text); console.log("----------------")
    line.innerHTML = text;
    return line;
    // const mainBody = document.getElementById("website_content");
@@ -72,7 +68,6 @@ export function createMultipleChoiceQuestion(questionText, options, callback) {
    for (let i = 0; i < options.length; i++) {
       const tempButton = document.createElement("button");
       tempButton.id = button_id++;
-      console.log("Button id is: " + button_id);
       tempButton.innerHTML = options[i];
       tempButton.style.marginLeft = "3px";
       questionContainer.appendChild(tempButton);
@@ -94,9 +89,6 @@ export function createMultipleChoiceQuestion(questionText, options, callback) {
       });
    });
    return questionContainer;
-   // document
-   //    .getElementById("website_content")
-   //    .appendChild(questionContainer);
 }
 
 function answerYes(answerText) {
@@ -116,25 +108,4 @@ function answerNo(answerText) {
 `;
       document.getElementById("website_content").appendChild(answerContainer);
    }
-}
-
-function createYesOrNoQuestion(yesText, noText, callback) {
-   finished = false;
-   const questionContainer = document.createElement("div");
-   questionContainer.innerHTML = `
-<p>${questionText}
-<button>YES</button>
-<button>NO</button>
-</p>
-`;
-   const buttons = questionContainer.querySelectorAll("button");
-   buttons[0].onclick = () => {
-      answerYes(yesText);
-      callback();
-   };
-   buttons[1].onclick = () => {
-      answerNo(noText);
-      callback();
-   };
-   document.getElementById("website_content").appendChild(questionContainer);
 }
