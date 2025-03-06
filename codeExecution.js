@@ -146,8 +146,9 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
          // create the fucntion that returns if the condition is true
          const evaluate = new Function(
             ...Object.keys(variables),
-            `return ${code[i]};`
+            `try { return ${code[i]}; } catch (error) { if (error instanceof ReferenceError) return true; throw error; }`
          );
+         console.log(typeof evaluate);
          // get the result
          const result = evaluate(...Object.values(variables));
          if (result) {
