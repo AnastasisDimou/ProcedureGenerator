@@ -173,12 +173,16 @@ export function executeShowIf(
          }
       } else {
          if (/^\{\s*showif/.test(code[i].trim())) {
-            i += executeShowIf(code, variables, i, stepContent, globalIndex);
+            const num = executeShowIf(code, variables, i, stepContent, i);
+            if (num < 0) {
+               return -1;
+            }
+            i += num;
             continue;
          }
          if (regexForEnd.test(code[i])) {
             stepContent.appendChild(createText("End of procedure"));
-            return end;
+            return -1;
          }
          if (code[i].trim() != "}" && code[i].trim() != "") {
             console.log("This is the index of the line: ", i);

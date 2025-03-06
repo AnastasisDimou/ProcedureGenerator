@@ -170,9 +170,12 @@ export async function parser(steps) {
             const userCode = joinToString(step, start, i);
             runUserCode(userCode, variables);
          } else if (/^\{\s*showif/.test(line.trim())) {
-            console.log("We start parsing if with i equal to: ", i);
-            i += executeShowIf(step, variables, i, stepContent, i);
-            console.log("we return to parsing with i equal to: " + i);
+            const num = executeShowIf(step, variables, i, stepContent, i);
+            if (num < 0) {
+               end = true;
+               break;
+            }
+            i += num;
          } else if (line.trim().startsWith("{end}")) {
             end = true;
             stepContent.appendChild(createText("End of procedure"));
