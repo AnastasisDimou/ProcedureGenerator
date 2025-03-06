@@ -134,6 +134,7 @@ function waitForNextClick() {
 function createAndWaitForNextButton(container) {
    return new Promise((resolve) => {
       const button = document.createElement("button");
+      button.id = "nextButton";
       button.textContent = "Next";
       container.appendChild(button);
 
@@ -174,6 +175,7 @@ export async function parser(steps) {
             console.log("we return to parsing with i equal to: " + i);
          } else if (line.trim().startsWith("{end}")) {
             end = true;
+            stepContent.appendChild(createText("End of procedure"));
             break;
          } else {
             const regex = /\{\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*\}/g;

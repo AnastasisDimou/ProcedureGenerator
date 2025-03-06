@@ -146,6 +146,7 @@ export function executeShowIf(
    const end = findBlockEnd(ifCode, startIndex);
    const code = joinToArray(ifCode, startIndex, end);
    const regexForDeleting = /showif|\(|\)|\{|\}/g;
+   const regexForEnd = /\{end\}/;
 
    let i;
 
@@ -161,7 +162,9 @@ export function executeShowIf(
             `return ${code[i]};`
          );
          // get the result
+         console.log("Variables are: ", variables);
          const result = evaluate(...Object.values(variables));
+         console.log("The result of the statement: ", code[i], "was: ", result);
          if (result) {
             continue;
          } else {
@@ -172,6 +175,10 @@ export function executeShowIf(
          if (/^\{\s*showif/.test(code[i].trim())) {
             i += executeShowIf(code, variables, i, stepContent, globalIndex);
             continue;
+         }
+         if (regexForEnd.test(code[i])) {
+            stepContent.appendChild(createText("End of procedure"));
+            return end;
          }
          if (code[i].trim() != "}" && code[i].trim() != "") {
             console.log("This is the index of the line: ", i);
