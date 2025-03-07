@@ -8,41 +8,63 @@ export function findBlockEnd(text, startIndex) {
    let foundOpening = false;
 
    for (let i = startIndex; i < text.length; i++) {
-      const chunk = text[i]; // This might be a line or large string
+      const chunk = text[i];
 
-      for (let j = 0; j < chunk.length; j++) {
+      let j = 0;
+      while (j < chunk.length) {
          const c = chunk[j];
+         const next = chunk[j + 1] || "";
+
+         // Skip single-line comments
+         if (c === "/" && next === "/") break;
+
+         // Skip multi-line comments
+         if (c === "/" && next === "*") {
+            j += 2;
+            while (
+               j < chunk.length - 1 &&
+               !(chunk[j] === "*" && chunk[j + 1] === "/")
+            )
+               j++;
+            j += 2;
+            continue;
+         }
 
          // Handle entering/exiting string literals
          if (!inString && (c === '"' || c === "'")) {
-            inString = true;
-            stringChar = c;
+            if (j > 0 && /\w/.test(chunk[j - 1])) {
+               // If the previous character is a word character, it's not a string start (e.g., It's)
+            } else {
+               inString = true;
+               stringChar = c;
+            }
          } else if (inString && c === stringChar) {
             inString = false;
          }
 
-         // If we're inside a string, ignore braces.
-         if (inString) continue;
+         // Ignore braces inside strings
+         if (inString) {
+            j++;
+            continue;
+         }
 
-         // First time we see a '{', start counting
+         // Track braces
          if (c === "{") {
             foundOpening = true;
             braceCount++;
          } else if (c === "}" && foundOpening) {
             braceCount--;
-            if (braceCount === 0) {
-               // Return some indication of where we are:
-               // either the line index, or i plus the exact char index, etc.
-               return i;
-            }
+            if (braceCount === 0) return i;
          }
+
+         j++;
       }
    }
 
    throw new Error("Unmatched closing brace '}' not found.");
 }
 
-function extractVariablesAndCleanCode(userCode, variables) {
+function extractVariablesAndCleanCode(userCode, variables, wholeParsing) {
    const varRegex =
       /^(var|let|const)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)(?:\s*=\s*([^;\n]+))?\s*;?\s*$/m;
 
@@ -69,6 +91,11 @@ function extractVariablesAndCleanCode(userCode, variables) {
    //       variables[varName] = computeVariable(varName, variables);
    //    }
    // }
+
+   if (wholeParsing) {
+      console.log(wholeParsing);
+      cleanedCode = makeIfstatements(cleanedCode);
+   }
 
    return cleanedCode;
 }
@@ -114,8 +141,22 @@ function extractVariablesAndCleanCode(userCode, variables) {
 //    }
 // }
 
+function makeIfstatements(code) {
+   console.log("Starting code: ");
+   console.log(code);
+   const regex = /if\s*\(\s*[^)]+\s*\)/g;
+
+   const modifiedCode = code.replace(regex, (match) =>
+      match.replace(/\(.*\)/, "(true)")
+   );
+
+   console.log(modifiedCode);
+
+   return modifiedCode;
+}
+
 export function runUserCode(userCode, variables) {
-   userCode = extractVariablesAndCleanCode(userCode, variables);
+   userCode = extractVariablesAndCleanCode(userCode, variables, true);
 
    // Wrap user code in a function that returns the modified variables object
    const wrappedFunction = new Function(
@@ -148,7 +189,6 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
             ...Object.keys(variables),
             `try { return ${code[i]}; } catch (error) { if (error instanceof ReferenceError) return true; throw error; }`
          );
-         console.log(typeof evaluate);
          // get the result
          const result = evaluate(...Object.values(variables));
          if (result) {
