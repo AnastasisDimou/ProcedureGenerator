@@ -112,7 +112,7 @@ function restoreInputPage() {
          border: none;
          outline: none;
          resize: none;
-         font-family: Arial, sans-serif;
+         font-family: "FiraCode Nerd Font Mono", monospace;
          font-size: 16px;
          padding: 10px;
          box-sizing: border-box;
