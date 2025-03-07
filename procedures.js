@@ -94,22 +94,3 @@ export function createMultipleChoiceQuestion(questionText, options, callback) {
    });
    return questionContainer;
 }
-
-function answerYes(answerText) {
-   const answerContainer = document.createElement("div");
-   answerContainer.innerHTML = `
-<p>${answerText}</p>
-`;
-   // answer.appendChild(answerContainer);
-   document.getElementById("website_content").appendChild(answerContainer);
-}
-
-function answerNo(answerText) {
-   const answerContainer = document.createElement("div");
-   if (answerText != "") {
-      answerContainer.innerHTML = `
-<p>${answerText}</p>
-`;
-      document.getElementById("website_content").appendChild(answerContainer);
-   }
-}

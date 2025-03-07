@@ -153,6 +153,9 @@ export async function parser(steps) {
       stepContent.appendChild(createText("\n---\n"));
       parsedContent[stepNumber] = stepContent;
       contentContainer.appendChild(stepContent);
+
+      stepContent.scrollIntoView({ behavior: "smooth", block: "start" });
+
       stepNumber++;
 
       // Stop if we've reached {end}
