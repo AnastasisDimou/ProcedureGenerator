@@ -41,14 +41,20 @@ function storeInput() {
    if (inputBox) inputBox.remove();
    if (buttonContainer) buttonContainer.remove();
 
-   // Add a back button to return to the previous page
+   const spacer = document.createElement("div");
+   spacer.style.width = "100px"; // Adjust based on button size
+   spacer.style.height = "50px"; // Same height as button
+   spacer.style.display = "inline-block"; // Keeps it from collapsing
+
+   document.body.insertBefore(spacer, document.body.firstChild);
+
    const backButton = document.createElement("button");
    backButton.className = "back-button";
    backButton.innerText = "Back";
    backButton.onclick = restoreInputPage;
 
    // css for the button
-   backButton.style.position = "absolute";
+   backButton.style.position = "fixed";
    backButton.style.top = "10px"; // Slight padding from the top
    backButton.style.left = "10px"; // Slight padding from the left
    backButton.style.backgroundColor = "#007bff"; // Blue background
@@ -59,7 +65,9 @@ function storeInput() {
    backButton.style.cursor = "pointer";
    backButton.style.fontSize = "16px";
 
-   document.body.appendChild(backButton);
+   document.body.insertBefore(backButton, document.body.firstChild.nextSibling);
+
+   document.body.appendChild(spacer);
 
    // Initialize variables and parsing
    window.storedString = inputText;
