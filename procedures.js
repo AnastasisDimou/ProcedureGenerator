@@ -21,20 +21,24 @@ function focusNextQuestion() {
 export function createInputQuestion(questionText, type, callback) {
    const questionContainer = document.createElement("div");
    questionContainer.innerText = questionText;
+
    const input = document.createElement("input");
    input.type = type;
+
+   function handleInput() {
+      if (input.value.trim() !== "" && input.checkValidity()) {
+         callback(input.value);
+      }
+   }
+
    input.addEventListener("keydown", function (event) {
-      if (
-         event.key === "Enter" &&
-         input.value.trim() !== "" &&
-         input.checkValidity()
-      ) {
+      if (event.key === "Enter") {
          event.preventDefault();
-         const inputValue = input.value;
-         callback(inputValue);
-         // focusNextQuestion();
+         handleInput();
       }
    });
+
+   input.addEventListener("blur", handleInput);
 
    questionContainer.appendChild(input);
    return questionContainer;
