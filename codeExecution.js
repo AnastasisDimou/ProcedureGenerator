@@ -156,7 +156,7 @@ function makeIfstatements(code) {
 }
 
 export function runUserCode(userCode, variables) {
-   userCode = extractVariablesAndCleanCode(userCode, variables, true);
+   userCode = extractVariablesAndCleanCode(userCode, variables, false);
 
    // Wrap user code in a function that returns the modified variables object
    const wrappedFunction = new Function(
