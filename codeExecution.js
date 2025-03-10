@@ -173,7 +173,7 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
    // check for how many = are in the if statement to be sure
    const end = findBlockEnd(ifCode, startIndex);
    const code = joinToArray(ifCode, startIndex, end);
-   const regexForDeleting = /showif|\(|\)|\{|\}/g;
+   const regexForDeleting = /showif|\{|\}/g;
    const regexForEnd = /\{end\}/;
 
    let i;
@@ -182,6 +182,7 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
       if (i === 0) {
          code[i] = code[i].replace(regexForDeleting, "");
          // create the fucntion that returns if the condition is true
+         console.log("The expression: " + code[i]);
          const evaluate = new Function(
             ...Object.keys(variables),
             `try { return ${code[i]}; } catch (error) { if (error instanceof ReferenceError) return true; throw error; }`
