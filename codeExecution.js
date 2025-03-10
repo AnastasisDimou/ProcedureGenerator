@@ -83,14 +83,17 @@ function extractVariablesAndCleanCode(userCode, variables, wholeParsing) {
       }
    }
 
+   console.log("variables are: ");
+   console.log(variables);
+
    let cleanedCode = lines.filter((line) => line.trim() !== "").join("\n");
 
    // Compute variables that have a value
-   // for (const varName in variables) {
-   //    if (variables[varName] !== undefined) {
-   //       variables[varName] = computeVariable(varName, variables);
-   //    }
-   // }
+   for (const varName in variables) {
+      if (variables[varName] !== undefined) {
+         variables[varName] = computeVariable(varName, variables);
+      }
+   }
 
    if (wholeParsing) {
       console.log(wholeParsing);
@@ -100,46 +103,40 @@ function extractVariablesAndCleanCode(userCode, variables, wholeParsing) {
    return cleanedCode;
 }
 
-// Compute variables that have a value
-// for (const varName in variables) {
-//    if (variables[varName] !== undefined) {
-//       variables[varName] = computeVariable(varName, variables);
-//    }
-// }
+function computeVariable(varName, variables) {
+   let expression = variables[varName];
 
-// function computeVariable(varName, variables) {
-//    try {
-//       let expression = variables[varName];
+   if (/["']/.test(expression)) {
+      expression = expression.replace(/["']/g, "");
+   }
 
-//       // If variable is undefined, empty, or only whitespace, return undefined
-//       if (expression === undefined || expression.trim() === "")
-//          return undefined;
+   // If variable is undefined, empty, or only whitespace, return undefined
+   // if (expression === undefined || expression.trim() === "") return undefined;
 
-//       expression = expression.replace(/,$/, "").trim(); // Remove trailing commas
+   expression = expression.replace(/,$/, "").trim(); // Remove trailing commas
+   console.log("The expression is: ", expression);
 
-//       // Handle empty quoted strings as undefined
-//       if (/^["'].*["']$/.test(expression)) {
-//          const unquoted = expression.slice(1, -1).trim();
-//          if (unquoted === "") return undefined; // Treat empty strings as undefined
-//          return unquoted;
-//       }
+   // Handle empty quoted strings as undefined
+   // if (/^["'].*["']$/.test(expression)) {
+   //    const unquoted = expression.slice(1, -1).trim();
+   //    if (unquoted === "") return undefined; // Treat empty strings as undefined
+   //    return unquoted;
+   // }
 
-//       // If the expression is purely numeric, convert it to a number
-//       if (!isNaN(expression) && !isNaN(parseFloat(expression))) {
-//          return parseFloat(expression);
-//       }
+   // If the expression is purely numeric, convert it to a number
+   if (!isNaN(expression) && !isNaN(parseFloat(expression))) {
+      return parseFloat(expression);
+   }
 
-//       // Ensure the expression does not contain unsafe characters
-//       if (!/^[\w\s+\-*/().]+$/.test(expression)) return undefined;
+   // Ensure the expression does not contain unsafe characters
+   // if (!/^[\w\s+\-*/().]+$/.test(expression)) return undefined;
 
-//       // Safely evaluate the expression with only the provided variables
-//       return new Function(...Object.keys(variables), `return (${expression});`)(
-//          ...Object.values(variables)
-//       );
-//    } catch (error) {
-//       return undefined; // Fail silently on any error
-//    }
-// }
+   // Safely evaluate the expression with only the provided variables
+   // return new Function(...Object.keys(variables), `return (${expression});`)(
+   //    ...Object.values(variables)
+   // );
+   return expression;
+}
 
 function makeIfstatements(code) {
    console.log("Starting code: ");
