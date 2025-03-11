@@ -183,68 +183,6 @@ export async function parser(steps) {
    return parsedContent;
 }
 
-function parseAllSteps(steps) {
-   const linesPerStep = steps.map((step) => step.split("\n"));
-   const contentContainer = document.getElementById("website_content");
-   const parsedContent = [];
-   let end = false;
-   let stepNumber = 0;
-
-   for (const step of linesPerStep) {
-      // Create a container for this step
-      stepContent = document.createElement("div");
-      allSteps = 1;
-      finished = false;
-
-      // Process each line
-      for (let i = 0; i < step.length; i++) {
-         let line = step[i];
-
-         if (line.trim().startsWith("Q:")) {
-            questionParsing(line);
-         } else if (line.trimEnd() === "{") {
-            let start = i;
-            i = findBlockEnd(step, i);
-            const userCode = joinToString(step, start, i);
-            runUserCode(userCode, variables);
-         } else if (/^\{\s*showif/.test(line.trim())) {
-            console.log("Going in showif at i equals: ", i);
-            const num = executeShowIf(step, variables, i, stepContent, i);
-            if (num < 0) {
-               end = true;
-               break;
-            }
-            i += num;
-            console.log("Returning from showif at it equals to: ", i);
-         } else if (line.trim().startsWith("{end}")) {
-            end = true;
-            stepContent.appendChild(createText("End of procedure"));
-            break;
-         } else {
-            const regex = /\{\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*\}/g;
-            if (line.match(regex)) {
-               line = checkForCodeInLine(line);
-            }
-            if (line) {
-               stepContent.appendChild(createText(line));
-            }
-         }
-      }
-
-      stepContent.appendChild(createText("\n---\n"));
-      parsedContent[stepNumber] = stepContent;
-      contentContainer.appendChild(stepContent);
-      stepNumber++;
-
-      // Stop if we've reached {end}
-      if (end) break;
-
-      // If we have more steps, show the "Next" button and wait for click
-   }
-
-   return parsedContent;
-}
-
 function appendText(flag, text) {
    if (flag) {
       stepContent.appendChild(createText(text));
