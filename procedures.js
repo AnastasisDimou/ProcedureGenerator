@@ -28,7 +28,14 @@ export function createInputQuestion(questionText, type, callback) {
    function handleInput() {
       if (input.value.trim() !== "" && input.checkValidity()) {
          callback(input.value);
+         highlightInput();
       }
+   }
+
+   function highlightInput() {
+      input.style.outline = "2px solid #e64833"; // Outer glow effect
+      input.style.border = "2px solid #e64833"; // Solid border
+      input.style.backgroundColor = ""; // Ensures background remains unchanged
    }
 
    input.addEventListener("keydown", function (event) {
