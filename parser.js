@@ -111,24 +111,32 @@ export async function parser(steps) {
    let end = false;
    let stepNumber = 0;
 
+   // variable to save text to append alltogether not line by line
+   let savedText = "";
+   let boolForAppendingText;
+
    for (const step of linesPerStep) {
       // Create a container for this step
       stepContent = document.createElement("div");
       allSteps = 1;
       finished = false;
+      boolForAppendingText = false;
 
       // Process each line
       for (let i = 0; i < step.length; i++) {
          let line = step[i];
 
          if (line.trim().startsWith("Q:")) {
+            appendText(boolForAppendingText, savedText);
             questionParsing(line);
          } else if (line.trimEnd() === "{") {
+            appendText(boolForAppendingText, savedText);
             let start = i;
             i = findBlockEnd(step, i);
             const userCode = joinToString(step, start, i);
             runUserCode(userCode, variables);
          } else if (/^\{\s*showif/.test(line.trim())) {
+            appendText(boolForAppendingText, savedText);
             const text = joinToArray(step, i, step.length);
             const num = executeShowIf(text, variables, 0, stepContent);
             if (num < 0) {
@@ -137,6 +145,7 @@ export async function parser(steps) {
             }
             i += num;
          } else if (line.trim().startsWith("{end}")) {
+            appendText(boolForAppendingText, savedText);
             end = true;
             stepContent.appendChild(createText("End of procedure"));
             break;
@@ -146,11 +155,14 @@ export async function parser(steps) {
                line = checkForCodeInLine(line);
             }
             if (line) {
-               stepContent.appendChild(createText(line));
+               savedText += line + "\n";
+               // stepContent.appendChild(createText(line));
+               boolForAppendingText = true;
             }
          }
       }
 
+      appendText(true, savedText);
       stepContent.appendChild(createText("\n---\n"));
       parsedContent[stepNumber] = stepContent;
       contentContainer.appendChild(stepContent);
@@ -231,6 +243,12 @@ function parseAllSteps(steps) {
    }
 
    return parsedContent;
+}
+
+function appendText(flag, text) {
+   if (flag) {
+      stepContent.appendChild(createText(text));
+   }
 }
 
 // Your existing helper functions:
