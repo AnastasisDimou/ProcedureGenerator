@@ -148,9 +148,9 @@ function restoreInputPage() {
          <button onclick="storeInput()">Generate</button>
       </div>
    `;
-   document
-      .getElementById("generateButton")
-      .addEventListener("click", storeInput);
+   // document
+   //    .getElementById("generateButton")
+   //    .addEventListener("click", storeInput);
 }
 
 // Call initializePage when the script runs
