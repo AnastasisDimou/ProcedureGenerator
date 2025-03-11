@@ -83,9 +83,9 @@ function storeInput() {
    document.body.appendChild(website_content);
    document.body.appendChild(websiteText);
 
-   const variables = variableReader(inputText);
+   variableReader(inputText);
    const steps = splitSteps(inputText);
-   const array = parser(steps, variables);
+   const array = parser(steps, 0);
    // renderSteps(array, 0);
 }
 

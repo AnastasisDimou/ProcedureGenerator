@@ -90,33 +90,71 @@ function checkForCodeInLine(line) {
 }
 
 // Helper to create and await a new "Next" button
-function createAndWaitForNextButton(container) {
+function createButtonsAndWait(nextLabel, backLabel, showBack) {
    return new Promise((resolve) => {
-      const button = document.createElement("button");
-      button.id = "nextButton";
-      button.textContent = "Next";
-      container.appendChild(button);
+      const container = document.getElementById("website_content");
+      if (!container) {
+         console.error('Element with id "website_content" not found.');
+         return;
+      }
 
-      button.addEventListener("click", () => {
-         button.remove(); // remove the button from the DOM
-         resolve();
+      // Create a container for the buttons
+      const buttonContainer = document.createElement("div");
+      buttonContainer.style.display = "flex";
+      buttonContainer.style.gap = "600px";
+      buttonContainer.style.marginTop = "20px";
+
+      // Create buttons
+      const nextButton = document.createElement("button");
+      nextButton.textContent = nextLabel;
+
+      const backButton = document.createElement("button");
+      backButton.textContent = backLabel;
+
+      // Append buttons to the container
+      if (showBack) buttonContainer.appendChild(backButton); // Only append if showBack is true
+      buttonContainer.appendChild(nextButton);
+
+      // Append the container to #website_content
+      container.appendChild(buttonContainer);
+
+      // Next button event
+      nextButton.addEventListener("click", () => {
+         cleanup();
+         resolve("next"); // Proceed with loop
       });
+
+      // Back button event (only if it exists)
+      if (showBack) {
+         backButton.addEventListener("click", () => {
+            cleanup();
+            resolve("back"); // Go back one step
+         });
+      }
+
+      function cleanup() {
+         buttonContainer.remove(); // Remove the entire button container
+      }
    });
 }
 
-export async function parser(steps) {
+let parsedContent = [];
+
+export async function parser(steps, startIndex) {
    const linesPerStep = steps.map((step) => step.split("\n"));
    const contentContainer = document.getElementById("website_content");
-   const parsedContent = [];
    let end = false;
-   let stepNumber = 0;
+   let stepNumber = startIndex;
 
    // variable to save text to append alltogether not line by line
    let savedText = "";
    let boolForAppendingText;
 
-   for (const step of linesPerStep) {
-      // Create a container for this step
+   console.log("Start index is: ", startIndex);
+   for (let index = startIndex; index < linesPerStep.length; index++) {
+      console.log(parsedContent);
+      console.log("now it is: ", index);
+      const step = linesPerStep[index];
       stepContent = document.createElement("div");
       allSteps = 1;
       finished = false;
@@ -169,18 +207,24 @@ export async function parser(steps) {
 
       stepContent.scrollIntoView({ behavior: "smooth", block: "start" });
 
-      stepNumber++;
-
       // Stop if we've reached {end}
       if (end) break;
 
       // If we have more steps, show the "Next" button and wait for click
       if (stepNumber < linesPerStep.length) {
-         await createAndWaitForNextButton(contentContainer);
+         const showBack = stepNumber > 0; // Only show "Back" if not on the first step
+         const action = await createButtonsAndWait("Next", "Back", showBack);
+
+         if (action === "next") {
+            stepNumber++; // Move forward
+         } else if (action === "back") {
+            parsedContent.pop();
+            // console.log(steps);
+            renderHistory(parsedContent, steps);
+            break;
+         }
       }
    }
-
-   return parsedContent;
 }
 
 function appendText(flag, text) {
