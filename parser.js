@@ -129,7 +129,8 @@ export async function parser(steps) {
             const userCode = joinToString(step, start, i);
             runUserCode(userCode, variables);
          } else if (/^\{\s*showif/.test(line.trim())) {
-            const num = executeShowIf(step, variables, i, stepContent, i);
+            const text = joinToArray(step, i, step.length);
+            const num = executeShowIf(text, variables, 0, stepContent);
             if (num < 0) {
                end = true;
                break;
@@ -195,12 +196,14 @@ function parseAllSteps(steps) {
             const userCode = joinToString(step, start, i);
             runUserCode(userCode, variables);
          } else if (/^\{\s*showif/.test(line.trim())) {
+            console.log("Going in showif at i equals: ", i);
             const num = executeShowIf(step, variables, i, stepContent, i);
             if (num < 0) {
                end = true;
                break;
             }
             i += num;
+            console.log("Returning from showif at it equals to: ", i);
          } else if (line.trim().startsWith("{end}")) {
             end = true;
             stepContent.appendChild(createText("End of procedure"));

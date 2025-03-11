@@ -2,6 +2,7 @@ import { joinToArray } from "./parser.js";
 import { createText } from "./procedures.js";
 
 export function findBlockEnd(text, startIndex) {
+   startIndex = 0;
    let braceCount = 0;
    let inString = false;
    let stringChar = "";
@@ -9,7 +10,6 @@ export function findBlockEnd(text, startIndex) {
 
    for (let i = startIndex; i < text.length; i++) {
       const chunk = text[i];
-
       let j = 0;
       while (j < chunk.length) {
          const c = chunk[j];
@@ -83,9 +83,6 @@ function extractVariablesAndCleanCode(userCode, variables, wholeParsing) {
       }
    }
 
-   console.log("variables are: ");
-   console.log(variables);
-
    let cleanedCode = lines.filter((line) => line.trim() !== "").join("\n");
 
    // Compute variables that have a value
@@ -113,8 +110,7 @@ function computeVariable(varName, variables) {
    // If variable is undefined, empty, or only whitespace, return undefined
    // if (expression === undefined || expression.trim() === "") return undefined;
 
-   expression = expression.replace(/,$/, "").trim(); // Remove trailing commas
-   console.log("The expression is: ", expression);
+   // expression = expression.replace(/,$/, "").trim(); // Remove trailing commas
 
    // Handle empty quoted strings as undefined
    // if (/^["'].*["']$/.test(expression)) {
@@ -139,15 +135,11 @@ function computeVariable(varName, variables) {
 }
 
 function makeIfstatements(code) {
-   console.log("Starting code: ");
-   console.log(code);
    const regex = /if\s*\(\s*[^)]+\s*\)/g;
 
    const modifiedCode = code.replace(regex, (match) =>
       match.replace(/\(.*\)/, "(true)")
    );
-
-   console.log(modifiedCode);
 
    return modifiedCode;
 }
@@ -171,6 +163,8 @@ export function runUserCode(userCode, variables) {
 export function executeShowIf(ifCode, variables, startIndex, stepContent) {
    // TODO
    // check for how many = are in the if statement to be sure
+
+   let minus = 1;
    const end = findBlockEnd(ifCode, startIndex);
    const code = joinToArray(ifCode, startIndex, end);
    const regexForDeleting = /showif|\{|\}/g;
@@ -182,7 +176,6 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
       if (i === 0) {
          code[i] = code[i].replace(regexForDeleting, "");
          // create the fucntion that returns if the condition is true
-         console.log("The expression: " + code[i]);
          const evaluate = new Function(
             ...Object.keys(variables),
             `try { return ${code[i]}; } catch (error) { if (error instanceof ReferenceError) return true; throw error; }`
@@ -197,7 +190,8 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
          }
       } else {
          if (/^\{\s*showif/.test(code[i].trim())) {
-            const num = executeShowIf(code, variables, i, stepContent, i);
+            minus++;
+            const num = executeShowIf(code, variables, i, stepContent);
             if (num < 0) {
                return -1;
             }
@@ -213,5 +207,5 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
          }
       }
    }
-   return i;
+   return i - minus;
 }
