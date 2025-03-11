@@ -127,16 +127,16 @@ export async function parser(steps) {
          let line = step[i];
 
          if (line.trim().startsWith("Q:")) {
-            appendText(boolForAppendingText, savedText);
+            savedText = appendText(boolForAppendingText, savedText);
             questionParsing(line);
          } else if (line.trimEnd() === "{") {
-            appendText(boolForAppendingText, savedText);
+            savedText = appendText(boolForAppendingText, savedText);
             let start = i;
             i = findBlockEnd(step, i);
             const userCode = joinToString(step, start, i);
             runUserCode(userCode, variables);
          } else if (/^\{\s*showif/.test(line.trim())) {
-            appendText(boolForAppendingText, savedText);
+            savedText = appendText(boolForAppendingText, savedText);
             const text = joinToArray(step, i, step.length);
             const num = executeShowIf(text, variables, 0, stepContent);
             if (num < 0) {
@@ -145,7 +145,7 @@ export async function parser(steps) {
             }
             i += num;
          } else if (line.trim().startsWith("{end}")) {
-            appendText(boolForAppendingText, savedText);
+            savedText = appendText(boolForAppendingText, savedText);
             end = true;
             stepContent.appendChild(createText("End of procedure"));
             break;
@@ -162,7 +162,7 @@ export async function parser(steps) {
          }
       }
 
-      appendText(true, savedText);
+      savedText = appendText(boolForAppendingText, savedText);
       stepContent.appendChild(createText("\n---\n"));
       parsedContent[stepNumber] = stepContent;
       contentContainer.appendChild(stepContent);
@@ -248,7 +248,9 @@ function parseAllSteps(steps) {
 function appendText(flag, text) {
    if (flag) {
       stepContent.appendChild(createText(text));
+      return "";
    }
+   return text;
 }
 
 // Your existing helper functions:
