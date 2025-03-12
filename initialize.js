@@ -1,6 +1,7 @@
 import { variableReader } from "./parser.js";
 import { splitSteps } from "./parser.js";
 import { parser } from "./parser.js";
+import { downloadGeneratedPage } from "./downloadPage.js";
 
 document.addEventListener("DOMContentLoaded", () => {
    const button = document.getElementById("generateButton");
@@ -69,6 +70,35 @@ function storeInput() {
 
    document.body.appendChild(spacer);
 
+   // Spacer for Download button
+   const downloadSpacer = document.createElement("div");
+   downloadSpacer.style.width = "100px";
+   downloadSpacer.style.height = "60px"; // Adjusted height to prevent collisions
+   downloadSpacer.style.display = "inline-block";
+
+   const steps = splitSteps(inputText);
+
+   // Create Download button (Bottom-Right Corner)
+   const downloadButton = document.createElement("button");
+   downloadButton.className = "download-button";
+   downloadButton.innerText = "Download Page";
+   downloadButton.onclick = () => downloadGeneratedPage(steps, inputText);
+
+   // Style the Download button
+   downloadButton.style.position = "fixed";
+   downloadButton.style.bottom = "20px";
+   downloadButton.style.right = "20px";
+   downloadButton.style.backgroundColor = "#28a745"; // Green background
+   downloadButton.style.color = "#fff";
+   downloadButton.style.border = "none";
+   downloadButton.style.padding = "10px 20px";
+   downloadButton.style.borderRadius = "5px";
+   downloadButton.style.cursor = "pointer";
+   downloadButton.style.fontSize = "16px";
+
+   document.body.appendChild(downloadButton);
+   document.body.appendChild(downloadSpacer); // Add spacer for Download button
+
    // Initialize variables and parsing
    window.storedString = inputText;
    window.finished = true;
@@ -84,8 +114,7 @@ function storeInput() {
    document.body.appendChild(websiteText);
 
    variableReader(inputText);
-   const steps = splitSteps(inputText);
-   const array = parser(steps, 0);
+   parser(steps, 0);
    // renderSteps(array, 0);
 }
 
