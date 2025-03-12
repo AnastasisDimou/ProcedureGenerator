@@ -8,9 +8,9 @@ export function downloadGeneratedPage(steps, text) {
    const stepsJSON = encodeURIComponent(JSON.stringify(steps));
    const textEncoded = encodeURIComponent(text);
 
-   // Base URL for JSDelivr CDN (replace with your username and repo)
+   // Base URL for JSDelivr with @latest to always get the latest version
    const cdnBaseURL =
-      "https://cdn.jsdelivr.net/gh/AnastasisDimou/ProcedureGenerator/";
+      "https://cdn.jsdelivr.net/gh/AnastasisDimou/ProcedureGenerator@latest/";
 
    // List of JavaScript files (hosted on GitHub via JSDelivr)
    const scriptFiles = [
