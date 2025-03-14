@@ -164,8 +164,12 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
    // TODO
    // check for how many = are in the if statement to be sure
 
-   let minus = 1;
+   // TODO
+   // changed this to 0 from 1
+   // need to chek if maybe you should always return end
+   let minus = 0;
    const end = findBlockEnd(ifCode, startIndex);
+   console.log("end should be: ", end);
    const code = joinToArray(ifCode, startIndex, end);
    const regexForDeleting = /showif|\{|\}/g;
    const regexForEnd = /\{end\}/;
@@ -186,12 +190,14 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
             continue;
          } else {
             i = end;
-            continue;
+            break;
          }
       } else {
          if (/^\{\s*showif/.test(code[i].trim())) {
             minus++;
-            const num = executeShowIf(code, variables, i, stepContent);
+            console.log("nest showif at i ", i);
+            const nestedCode = joinToArray(code, i, code.length);
+            const num = executeShowIf(nestedCode, variables, i, stepContent);
             if (num < 0) {
                return -1;
             }
@@ -207,5 +213,6 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
          }
       }
    }
-   return i - minus;
+   console.log("returning i is ", i - minus);
+   return end;
 }

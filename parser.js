@@ -174,6 +174,7 @@ export async function parser(steps, startIndex) {
             const userCode = joinToString(step, start, i);
             runUserCode(userCode, variables);
          } else if (/^\{\s*showif/.test(line.trim())) {
+            console.log("going in at show if at i = ", i);
             savedText = appendText(boolForAppendingText, savedText);
             const text = joinToArray(step, i, step.length);
             const num = executeShowIf(text, variables, 0, stepContent);
