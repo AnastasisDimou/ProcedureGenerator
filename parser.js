@@ -150,10 +150,7 @@ export async function parser(steps, startIndex) {
    let savedText = "";
    let boolForAppendingText;
 
-   console.log("Start index is: ", startIndex);
    for (let index = startIndex; index < linesPerStep.length; index++) {
-      console.log(parsedContent);
-      console.log("now it is: ", index);
       const step = linesPerStep[index];
       stepContent = document.createElement("div");
       allSteps = 1;
@@ -209,7 +206,10 @@ export async function parser(steps, startIndex) {
       stepContent.scrollIntoView({ behavior: "smooth", block: "start" });
 
       // Stop if we've reached {end}
-      if (end) break;
+      if (end) {
+         createFinalBackButton(parsedContent, steps);
+         break;
+      }
 
       // If we have more steps, show the "Next" button and wait for click
       if (stepNumber < linesPerStep.length) {
@@ -220,12 +220,92 @@ export async function parser(steps, startIndex) {
             stepNumber++; // Move forward
          } else if (action === "back") {
             parsedContent.pop();
-            // console.log(steps);
             renderHistory(parsedContent, steps);
             break;
          }
       }
    }
+}
+
+function createFinalBackButton(parsedContent, steps) {
+   const container = document.getElementById("website_content");
+   if (!container) {
+      console.error('Element with id "website_content" not found.');
+      return;
+   }
+
+   // Create a back button container
+   const buttonContainer = document.createElement("div");
+   buttonContainer.style.display = "flex";
+   // buttonContainer.style.justifyContent = "center";
+   buttonContainer.style.marginTop = "20px";
+
+   // Create Back button
+   const backButton = document.createElement("button");
+   backButton.textContent = "Back";
+
+   // Append Back button to container
+   buttonContainer.appendChild(backButton);
+   container.appendChild(buttonContainer);
+
+   // Back button event listener
+   backButton.addEventListener("click", () => {
+      buttonContainer.remove(); // Remove the final Back button
+      parsedContent.pop(); // Remove last rendered step
+      renderHistory(parsedContent, steps); // Re-render previous step
+   });
+}
+
+function parseStep(step) {
+   let savedText = "";
+   let boolForAppendingText = false;
+   let end = false;
+   for (let i = 0; i < step.length; i++) {
+      let line = step[i];
+
+      if (line.trim().startsWith("Q:")) {
+         savedText = appendText(boolForAppendingText, savedText);
+         questionParsing(line);
+      } else if (line.trimEnd() === "{") {
+         savedText = appendText(boolForAppendingText, savedText);
+         let start = i;
+         i = findBlockEnd(step, i);
+         const userCode = joinToString(step, start, i);
+         runUserCode(userCode, variables);
+      } else if (/^\{\s*showif/.test(line.trim())) {
+         console.log("going in at show if at i = ", i);
+         savedText = appendText(boolForAppendingText, savedText);
+         const text = joinToArray(step, i, step.length);
+         const num = executeShowIf(text, variables, 0, stepContent);
+         if (num < 0) {
+            end = true;
+            break;
+         }
+         i += num;
+      } else if (line.trim().startsWith("{end}")) {
+         savedText = appendText(boolForAppendingText, savedText);
+         end = true;
+         stepContent.appendChild(createText("End of procedure"));
+         break;
+      } else {
+         const regex = /\{\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*\}/g;
+         if (line.match(regex)) {
+            line = checkForCodeInLine(line);
+         }
+         if (line) {
+            savedText += line + "\n";
+            // stepContent.appendChild(createText(line));
+            boolForAppendingText = true;
+         }
+      }
+   }
+
+   savedText = appendText(boolForAppendingText, savedText);
+   stepContent.appendChild(createText("\n---\n"));
+   parsedContent[stepNumber] = stepContent;
+   contentContainer.appendChild(stepContent);
+
+   if (end) return 0;
 }
 
 function appendText(flag, text) {
@@ -247,3 +327,7 @@ export function joinToArray(step, start, end) {
 
 // TODO
 // whenver generate is hit all variables should be forgotten
+
+// TODO
+// make the parser function use the parse step function inside of it.
+// It should propably only need to replace everything inside the first loop with the function

@@ -164,9 +164,6 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
    // TODO
    // check for how many = are in the if statement to be sure
 
-   // TODO
-   // changed this to 0 from 1
-   // need to chek if maybe you should always return end
    let minus = 0;
    const end = findBlockEnd(ifCode, startIndex);
    console.log("end should be: ", end);
@@ -216,3 +213,6 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
    console.log("returning i is ", i - minus);
    return end;
 }
+
+// TODO
+// Every time an if statement is true a step is going to be created until the next showif (maybe with regex by finding the index of the next showif) and calling the parseStep function on that step. The rest of the code should propably not change
