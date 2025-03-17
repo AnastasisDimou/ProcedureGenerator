@@ -142,71 +142,19 @@ let parsedContent = [];
 
 export async function parser(steps, startIndex) {
    const linesPerStep = steps.map((step) => step.split("\n"));
-   const contentContainer = document.getElementById("website_content");
-   let end = false;
    let stepNumber = startIndex;
-
-   // variable to save text to append alltogether not line by line
-   let savedText = "";
-   let boolForAppendingText;
 
    for (let index = startIndex; index < linesPerStep.length; index++) {
       const step = linesPerStep[index];
       stepContent = document.createElement("div");
       allSteps = 1;
       finished = false;
-      boolForAppendingText = false;
+      // stepNumber = startIndex;
 
       // Process each line
-      for (let i = 0; i < step.length; i++) {
-         let line = step[i];
-
-         if (line.trim().startsWith("Q:")) {
-            savedText = appendText(boolForAppendingText, savedText);
-            questionParsing(line);
-         } else if (line.trimEnd() === "{") {
-            savedText = appendText(boolForAppendingText, savedText);
-            let start = i;
-            i = findBlockEnd(step, i);
-            const userCode = joinToString(step, start, i);
-            runUserCode(userCode, variables);
-         } else if (/^\{\s*showif/.test(line.trim())) {
-            console.log("going in at show if at i = ", i);
-            savedText = appendText(boolForAppendingText, savedText);
-            const text = joinToArray(step, i, step.length);
-            const num = executeShowIf(text, variables, 0, stepContent);
-            if (num < 0) {
-               end = true;
-               break;
-            }
-            i += num;
-         } else if (line.trim().startsWith("{end}")) {
-            savedText = appendText(boolForAppendingText, savedText);
-            end = true;
-            stepContent.appendChild(createText("End of procedure"));
-            break;
-         } else {
-            const regex = /\{\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*\}/g;
-            if (line.match(regex)) {
-               line = checkForCodeInLine(line);
-            }
-            if (line) {
-               savedText += line + "\n";
-               // stepContent.appendChild(createText(line));
-               boolForAppendingText = true;
-            }
-         }
-      }
-
-      savedText = appendText(boolForAppendingText, savedText);
-      stepContent.appendChild(createText("\n---\n"));
-      parsedContent[stepNumber] = stepContent;
-      contentContainer.appendChild(stepContent);
-
-      stepContent.scrollIntoView({ behavior: "smooth", block: "start" });
-
+      const res = parseStep(step, stepContent, stepNumber, 0);
       // Stop if we've reached {end}
-      if (end) {
+      if (res === 0) {
          createFinalBackButton(parsedContent, steps);
          break;
       }
@@ -256,11 +204,14 @@ function createFinalBackButton(parsedContent, steps) {
    });
 }
 
-function parseStep(step) {
+export function parseStep(step, stepContent, stepNumber, start) {
+   const contentContainer = document.getElementById("website_content");
    let savedText = "";
    let boolForAppendingText = false;
    let end = false;
-   for (let i = 0; i < step.length; i++) {
+   let i;
+   console.log("You go in here with start ", start, "out of ", step.length);
+   for (i = start; i < step.length; i++) {
       let line = step[i];
 
       if (line.trim().startsWith("Q:")) {
@@ -273,15 +224,28 @@ function parseStep(step) {
          const userCode = joinToString(step, start, i);
          runUserCode(userCode, variables);
       } else if (/^\{\s*showif/.test(line.trim())) {
-         console.log("going in at show if at i = ", i);
+         console.log("I that goes in here is: ", i);
          savedText = appendText(boolForAppendingText, savedText);
-         const text = joinToArray(step, i, step.length);
-         const num = executeShowIf(text, variables, 0, stepContent);
+         const endIndex = findBlockEnd(step, 0);
+         console.log("The step is: ");
+         console.log(step);
+         const text = joinToArray(step, 0, step.length);
+         const num = executeShowIf(
+            text,
+            variables,
+            i,
+            endIndex,
+            stepContent,
+            stepNumber,
+            i
+         );
+         console.log("The function returns: ", num);
          if (num < 0) {
             end = true;
             break;
          }
          i += num;
+         console.log("continuing from i: ", i);
       } else if (line.trim().startsWith("{end}")) {
          savedText = appendText(boolForAppendingText, savedText);
          end = true;
@@ -292,7 +256,7 @@ function parseStep(step) {
          if (line.match(regex)) {
             line = checkForCodeInLine(line);
          }
-         if (line) {
+         if (line && line.trim() != "}") {
             savedText += line + "\n";
             // stepContent.appendChild(createText(line));
             boolForAppendingText = true;
@@ -301,11 +265,13 @@ function parseStep(step) {
    }
 
    savedText = appendText(boolForAppendingText, savedText);
-   stepContent.appendChild(createText("\n---\n"));
    parsedContent[stepNumber] = stepContent;
    contentContainer.appendChild(stepContent);
 
+   stepContent.scrollIntoView({ behavior: "smooth", block: "start" });
+
    if (end) return 0;
+   return i;
 }
 
 function appendText(flag, text) {

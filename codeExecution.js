@@ -1,5 +1,6 @@
 import { joinToArray } from "./parser.js";
-import { createText } from "./procedures.js";
+// import { createText } from "./procedures.js";
+import { parseStep } from "./parser.js";
 
 export function findBlockEnd(text, startIndex) {
    startIndex = 0;
@@ -160,21 +161,27 @@ export function runUserCode(userCode, variables) {
    Object.assign(variables, updatedVariables);
 }
 
-export function executeShowIf(ifCode, variables, startIndex, stepContent) {
+export function executeShowIf(
+   ifCode,
+   variables,
+   startIndex,
+   end,
+   stepContent,
+   stepNumber,
+   globalIndex
+) {
    // TODO
    // check for how many = are in the if statement to be sure
 
-   let minus = 0;
-   const end = findBlockEnd(ifCode, startIndex);
-   console.log("end should be: ", end);
-   const code = joinToArray(ifCode, startIndex, end);
+   // const code = joinToArray(ifCode, startIndex, end);
+   let code = ifCode;
    const regexForDeleting = /showif|\{|\}/g;
-   const regexForEnd = /\{end\}/;
+   // const regexForEnd = /\{end\}/;
 
    let i;
-
-   for (i = 0; i < code.length; i++) {
-      if (i === 0) {
+   console.log("starIndex is: ", startIndex);
+   for (i = startIndex; i < end; i++) {
+      if (i === startIndex) {
          code[i] = code[i].replace(regexForDeleting, "");
          // create the fucntion that returns if the condition is true
          const evaluate = new Function(
@@ -190,28 +197,39 @@ export function executeShowIf(ifCode, variables, startIndex, stepContent) {
             break;
          }
       } else {
-         if (/^\{\s*showif/.test(code[i].trim())) {
-            minus++;
-            console.log("nest showif at i ", i);
-            const nestedCode = joinToArray(code, i, code.length);
-            const num = executeShowIf(nestedCode, variables, i, stepContent);
-            if (num < 0) {
-               return -1;
-            }
-            i += num;
-            continue;
-         }
-         if (regexForEnd.test(code[i])) {
-            stepContent.appendChild(createText("End of procedure"));
+         // code[0] = `{${code[0]}`;
+         const res = parseStep(
+            code,
+            stepContent,
+            stepNumber,
+            i + globalIndex - 1
+         );
+         if (res === 0) {
             return -1;
          }
-         if (code[i].trim() != "}" && code[i].trim() != "") {
-            stepContent.appendChild(createText(code[i].trim()));
-         }
+         i = res;
+         // // !--------------------------------
+         // if (/^\{\s*showif/.test(code[i].trim())) {
+         //    minus++;
+         //    console.log("nest showif at i ", i);
+         //    const nestedCode = joinToArray(code, i, code.length);
+         //    const num = executeShowIf(nestedCode, variables, i, stepContent);
+         //    if (num < 0) {
+         //       return -1;
+         //    }
+         //    i += num;
+         //    continue;
+         // }
+         // if (regexForEnd.test(code[i])) {
+         //    stepContent.appendChild(createText("End of procedure"));
+         //    return -1;
+         // }
+         // if (code[i].trim() != "}" && code[i].trim() != "") {
+         //    stepContent.appendChild(createText(code[i].trim()));
+         // }
       }
    }
-   console.log("returning i is ", i - minus);
-   return end;
+   return i - 1;
 }
 
 // TODO
