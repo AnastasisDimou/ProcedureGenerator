@@ -1,14 +1,16 @@
-import { joinToArray } from "./parser.js";
-// import { createText } from "./procedures.js";
-import { parseStep } from "./parser.js";
+import { parseSection } from "./parser.js";
 
 export function findBlockEnd(text, startIndex) {
-   startIndex = 0;
+   // startIndex = 0;
    let braceCount = 0;
    let inString = false;
    let stringChar = "";
    let foundOpening = false;
 
+   console.log("The text is: ");
+   console.log(text);
+
+   console.log("it starts at ", text[startIndex]);
    for (let i = startIndex; i < text.length; i++) {
       const chunk = text[i];
       let j = 0;
@@ -179,10 +181,12 @@ export function executeShowIf(
    // const regexForEnd = /\{end\}/;
 
    let i;
-   console.log("starIndex is: ", startIndex);
    for (i = startIndex; i < end; i++) {
+      console.log("I is: ", i);
+      console.log("startIndex is: ", startIndex);
       if (i === startIndex) {
          code[i] = code[i].replace(regexForDeleting, "");
+
          // create the fucntion that returns if the condition is true
          const evaluate = new Function(
             ...Object.keys(variables),
@@ -198,7 +202,7 @@ export function executeShowIf(
          }
       } else {
          // code[0] = `{${code[0]}`;
-         const res = parseStep(
+         const res = parseSection(
             code,
             stepContent,
             stepNumber,
@@ -208,25 +212,6 @@ export function executeShowIf(
             return -1;
          }
          i = res;
-         // // !--------------------------------
-         // if (/^\{\s*showif/.test(code[i].trim())) {
-         //    minus++;
-         //    console.log("nest showif at i ", i);
-         //    const nestedCode = joinToArray(code, i, code.length);
-         //    const num = executeShowIf(nestedCode, variables, i, stepContent);
-         //    if (num < 0) {
-         //       return -1;
-         //    }
-         //    i += num;
-         //    continue;
-         // }
-         // if (regexForEnd.test(code[i])) {
-         //    stepContent.appendChild(createText("End of procedure"));
-         //    return -1;
-         // }
-         // if (code[i].trim() != "}" && code[i].trim() != "") {
-         //    stepContent.appendChild(createText(code[i].trim()));
-         // }
       }
    }
    return i - 1;

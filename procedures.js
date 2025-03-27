@@ -18,12 +18,18 @@ function focusNextQuestion() {
    }
 }
 
-export function createInputQuestion(questionText, type, callback) {
+export function createInputQuestion(
+   questionText,
+   type,
+   variableName,
+   callback
+) {
    const questionContainer = document.createElement("div");
    questionContainer.innerText = questionText;
 
    const input = document.createElement("input");
    input.type = type;
+   input.name = variableName;
 
    function handleInput() {
       if (input.value.trim() !== "" && input.checkValidity()) {
@@ -51,8 +57,9 @@ export function createInputQuestion(questionText, type, callback) {
    return questionContainer;
 }
 
-export function createText(text) {
+export function createText(text, className) {
    const line = document.createElement("div");
+   if (className != "") line.classList.add(className);
    // TODO
    text = markdown(text);
    // nd: a _hacky_ way to allow us to maintain
@@ -71,10 +78,16 @@ export function createText(text) {
 
 let button_id = 0;
 
-export function createMultipleChoiceQuestion(questionText, options, callback) {
-   // finished = false;
+export function createMultipleChoiceQuestion(
+   questionText,
+   options,
+   variableName,
+   callback
+) {
    const questionContainer = document.createElement("div");
    questionContainer.innerText = questionText;
+   questionContainer.classList.add("question-block");
+   questionContainer.setAttribute("data-var", variableName); // Tag the container with the variable name
 
    for (let i = 0; i < options.length; i++) {
       const tempButton = document.createElement("button");
@@ -83,6 +96,7 @@ export function createMultipleChoiceQuestion(questionText, options, callback) {
       tempButton.style.marginLeft = "3px";
       questionContainer.appendChild(tempButton);
    }
+
    const buttons = questionContainer.querySelectorAll("button");
    buttons.forEach((button) => {
       button.addEventListener("click", () => {
@@ -91,12 +105,10 @@ export function createMultipleChoiceQuestion(questionText, options, callback) {
             btn.style.outline = "";
          });
 
-         // change button color when clicked
          button.style.backgroundColor = "#e64833";
          button.style.outline = `2px solid #ffffff`;
 
          callback(button.innerText);
-         // focusNextQuestion();
       });
    });
    return questionContainer;

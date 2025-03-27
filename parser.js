@@ -23,6 +23,8 @@ export function variableReader(textFile) {
    cleanVar.forEach((varName) => {
       variables[varName] = ""; // Store variables in an object safely
    });
+
+   return variables;
 }
 
 export function splitSteps(textFile) {
@@ -49,12 +51,17 @@ function questionParsing(line) {
       // making the array that holds the options
       const questions = match[3].split(",").map((option) => option.trim());
       // console.log("Question:", match[1]);
-      if (variables.hasOwnProperty(match[2])) {
+      if (match[2] in variables) {
          stepContent.appendChild(
-            createMultipleChoiceQuestion(match[1], questions, (answer) => {
-               variables[match[2]] = answer;
-               currentStep++;
-            })
+            createMultipleChoiceQuestion(
+               match[1],
+               questions,
+               match[2],
+               (answer) => {
+                  variables[match[2]] = answer;
+                  currentStep++;
+               }
+            )
          );
       }
    } else {
@@ -68,10 +75,12 @@ function questionParsing(line) {
       const match = str.match(regexForSpliting);
       let type = match[3] || "text";
 
+      console.log("Match[2] is: ", match[2]);
+
       if (match[2] in variables) {
          type = type.trim();
          stepContent.appendChild(
-            createInputQuestion(match[1], type, (answer) => {
+            createInputQuestion(match[1], type, match[2], (answer) => {
                variables[match[2]] = answer;
                currentStep++;
             })
@@ -149,10 +158,10 @@ export async function parser(steps, startIndex) {
       stepContent = document.createElement("div");
       allSteps = 1;
       finished = false;
-      // stepNumber = startIndex;
 
       // Process each line
-      const res = parseStep(step, stepContent, stepNumber, 0);
+      const res = parseSection(step, stepContent, stepNumber, 0);
+      console.log(parsedContent);
       // Stop if we've reached {end}
       if (res === 0) {
          createFinalBackButton(parsedContent, steps);
@@ -160,19 +169,91 @@ export async function parser(steps, startIndex) {
       }
 
       // If we have more steps, show the "Next" button and wait for click
-      if (stepNumber < linesPerStep.length) {
-         const showBack = stepNumber > 0; // Only show "Back" if not on the first step
-         const action = await createButtonsAndWait("Next", "Back", showBack);
+      // if (stepNumber < linesPerStep.length) {
+      //    const showBack = stepNumber > 0; // Only show "Back" if not on the first step
+      //    const action = await createButtonsAndWait("Next", "Back", showBack);
 
-         if (action === "next") {
-            stepNumber++; // Move forward
-         } else if (action === "back") {
-            parsedContent.pop();
-            renderHistory(parsedContent, steps);
-            break;
+      //    if (action === "next") {
+      //       stepNumber++; // Move forward
+      //    } else if (action === "back") {
+      //       parsedContent.pop();
+      //       renderHistory(parsedContent, steps);
+      //       break;
+      //    }
+      // }
+      stepNumber++;
+   }
+
+   return parsedContent;
+}
+
+export function parseSection(step, stepContent, stepNumber, start) {
+   let savedText = "";
+   let boolForAppendingText = false;
+   let end = false;
+   let i;
+   const contentContainer = document.getElementById("website_content");
+   for (i = start; i < step.length; i++) {
+      let line = step[i];
+
+      if (line.trim().startsWith("Q:")) {
+         savedText = appendText(boolForAppendingText, savedText);
+         questionParsing(line);
+      } else if (line.trimEnd() === "{") {
+         savedText = appendText(boolForAppendingText, savedText);
+         let start = i;
+         i = findBlockEnd(step, start);
+         const userCode = joinToString(step, start, i);
+         runUserCode(userCode, variables);
+      } else if (/^\{\s*showif/.test(line.trim())) {
+         savedText = appendText(boolForAppendingText, savedText);
+         const showIfContainer = document.createElement("div");
+         // showIfContainer.classList.add("if");
+
+         i = createShowif(i, step, showIfContainer);
+         stepContent.appendChild(showIfContainer);
+         // const text = joinToArray(step, 0, step.length);
+         // const num = executeShowIf(
+         //    text,
+         //    variables,
+         //    i,
+         //    endIndex,
+         //    stepContent,
+         //    stepNumber,
+         //    i
+         // );
+         // if (num < 0) {
+         //    end = true;
+         //    break;
+         // }
+         // i += num;
+         // console.log("continuing from i: ", i);
+      } else if (line.trim().startsWith("{end}")) {
+         savedText = appendText(boolForAppendingText, savedText);
+         end = true;
+         stepContent.appendChild(createText("End of procedure", ""));
+         break;
+      } else {
+         const regex = /\{\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*\}/g;
+         if (line.match(regex)) {
+            line = checkForCodeInLine(line);
+         }
+         if (line && line.trim() != "}") {
+            savedText += line + "\n";
+            // stepContent.appendChild(createText(line));
+            boolForAppendingText = true;
          }
       }
    }
+
+   savedText = appendText(boolForAppendingText, savedText);
+   parsedContent[stepNumber] = stepContent;
+   contentContainer.appendChild(stepContent);
+
+   stepContent.scrollIntoView({ behavior: "smooth", block: "start" });
+
+   if (end) return 0;
+   return i;
 }
 
 function createFinalBackButton(parsedContent, steps) {
@@ -204,79 +285,39 @@ function createFinalBackButton(parsedContent, steps) {
    });
 }
 
-export function parseStep(step, stepContent, stepNumber, start) {
-   const contentContainer = document.getElementById("website_content");
-   let savedText = "";
-   let boolForAppendingText = false;
-   let end = false;
-   let i;
-   console.log("You go in here with start ", start, "out of ", step.length);
-   for (i = start; i < step.length; i++) {
-      let line = step[i];
+function createShowif(i, step, showIfContainer) {
+   const end = findBlockEnd(step, i);
 
-      if (line.trim().startsWith("Q:")) {
-         savedText = appendText(boolForAppendingText, savedText);
-         questionParsing(line);
-      } else if (line.trimEnd() === "{") {
-         savedText = appendText(boolForAppendingText, savedText);
-         let start = i;
-         i = findBlockEnd(step, i);
-         const userCode = joinToString(step, start, i);
-         runUserCode(userCode, variables);
-      } else if (/^\{\s*showif/.test(line.trim())) {
-         console.log("I that goes in here is: ", i);
-         savedText = appendText(boolForAppendingText, savedText);
-         const endIndex = findBlockEnd(step, 0);
-         console.log("The step is: ");
-         console.log(step);
-         const text = joinToArray(step, 0, step.length);
-         const num = executeShowIf(
-            text,
-            variables,
-            i,
-            endIndex,
-            stepContent,
-            stepNumber,
-            i
-         );
-         console.log("The function returns: ", num);
-         if (num < 0) {
-            end = true;
-            break;
-         }
-         i += num;
-         console.log("continuing from i: ", i);
-      } else if (line.trim().startsWith("{end}")) {
-         savedText = appendText(boolForAppendingText, savedText);
-         end = true;
-         stepContent.appendChild(createText("End of procedure"));
-         break;
-      } else {
-         const regex = /\{\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*\}/g;
-         if (line.match(regex)) {
-            line = checkForCodeInLine(line);
-         }
-         if (line && line.trim() != "}") {
-            savedText += line + "\n";
-            // stepContent.appendChild(createText(line));
-            boolForAppendingText = true;
+   const regexForDeleting = /showif|\{|\}/g;
+
+   step[i] = step[i].replace(regexForDeleting, "");
+   const firstLine = step[i];
+   for (i; i < end; i++) {
+      const line = step[i];
+      if (/^\{\s*showif/.test(line.trim())) {
+         const IfContainer = document.createElement("div");
+         // IfContainer.classList.add("if");
+         i = createShowif(i, step, IfContainer);
+         showIfContainer.appendChild(IfContainer);
+         continue;
+      }
+      if (step[i].trim() != "}") {
+         // trim() removes the box around the text
+         console.log("this gets appended: ", step[i]);
+         if (firstLine === step[i]) {
+            showIfContainer.appendChild(createText(step[i].trim(), "if"));
+         } else {
+            showIfContainer.appendChild(createText(step[i].trim(), ""));
          }
       }
    }
 
-   savedText = appendText(boolForAppendingText, savedText);
-   parsedContent[stepNumber] = stepContent;
-   contentContainer.appendChild(stepContent);
-
-   stepContent.scrollIntoView({ behavior: "smooth", block: "start" });
-
-   if (end) return 0;
    return i;
 }
 
 function appendText(flag, text) {
    if (flag) {
-      stepContent.appendChild(createText(text));
+      stepContent.appendChild(createText(text, ""));
       return "";
    }
    return text;
@@ -293,7 +334,3 @@ export function joinToArray(step, start, end) {
 
 // TODO
 // whenver generate is hit all variables should be forgotten
-
-// TODO
-// make the parser function use the parse step function inside of it.
-// It should propably only need to replace everything inside the first loop with the function
