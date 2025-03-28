@@ -114,7 +114,7 @@ export async function downloadGeneratedPage(steps, text) {
             if (step) step.style.display = i === 0 ? "block" : "none";
          }
          appendNavButtons();
-         showStep(0); // 👈 this ensures step0's logic runs
+         showStep(0);
       }
 
    
