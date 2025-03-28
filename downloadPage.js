@@ -17,6 +17,7 @@ export async function downloadGeneratedPage(steps, text) {
    console.log("this is the ");
    console.log(parsedContent);
    for (let i = 0; i < parsedContent.length; i++) {
+      parsedContent[i].classList.add("step" + i);
       renderedHTML += parsedContent[i].outerHTML;
    }
 
@@ -100,26 +101,34 @@ export async function downloadGeneratedPage(steps, text) {
 
    const navScript = `
    <script>
-      let stepsHTML = ${JSON.stringify(stepsAsHTML)};
       let currentStep = 0;
-      let renderHistory = [];
    
-      function renderStepsFromHistory() {
-         const container = document.getElementById("website_content");
-         container.innerHTML = "";
-         renderHistory.forEach(stepHTML => {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = stepHTML;
-            const stepNode = tempDiv.firstElementChild;
-            container.appendChild(stepNode);
-         });
+      function getTotalSteps() {
+         return document.querySelectorAll('[class^="step"]').length;
+      }
+   
+      function initializePage() {
+         const totalSteps = getTotalSteps();
+         for (let i = 0; i < totalSteps; i++) {
+            const step = document.querySelector(".step" + i);
+            if (step) step.style.display = i === 0 ? "block" : "none";
+         }
          appendNavButtons();
+      }
+   
+      function showStep(index) {
+         const step = document.querySelector(".step" + index);
+         if (step) step.style.display = "block";
+      }
+   
+      function hideStep(index) {
+         const step = document.querySelector(".step" + index);
+         if (step) step.style.display = "none";
       }
    
       function appendNavButtons() {
          const container = document.getElementById("website_content");
    
-         // Clear old buttons
          const oldButtons = container.querySelector('.nav-buttons');
          if (oldButtons) oldButtons.remove();
    
@@ -129,26 +138,24 @@ export async function downloadGeneratedPage(steps, text) {
          buttonContainer.style.gap = "600px";
          buttonContainer.style.marginTop = "20px";
    
-         if (renderHistory.length > 1) {
+         if (currentStep > 0) {
             const backButton = document.createElement("button");
             backButton.textContent = "Back";
             backButton.addEventListener("click", () => {
-               if (renderHistory.length > 1) {
-                  renderHistory.pop();
-                  currentStep--;
-                  renderStepsFromHistory();
-               }
+               hideStep(currentStep);
+               currentStep--;
+               appendNavButtons();
             });
             buttonContainer.appendChild(backButton);
          }
    
-         if (currentStep < stepsHTML.length - 1) {
+         if (currentStep < getTotalSteps() - 1) {
             const nextButton = document.createElement("button");
             nextButton.textContent = "Next";
             nextButton.addEventListener("click", () => {
                currentStep++;
-               renderHistory.push(stepsHTML[currentStep]);
-               renderStepsFromHistory();
+               showStep(currentStep);
+               appendNavButtons();
             });
             buttonContainer.appendChild(nextButton);
          }
@@ -156,11 +163,7 @@ export async function downloadGeneratedPage(steps, text) {
          container.appendChild(buttonContainer);
       }
    
-      document.addEventListener("DOMContentLoaded", () => {
-         // Initial load: render first step
-         renderHistory.push(stepsHTML[0]);
-         renderStepsFromHistory();
-      });
+      document.addEventListener("DOMContentLoaded", initializePage);
    </script>
    `;
 
@@ -180,9 +183,9 @@ export async function downloadGeneratedPage(steps, text) {
       ${variablesScript}
       ${inputQuestionsJS}
       ${buttonScript}
+      ${navScript}
    </body>
    </html>`;
-   // ${navScript}
 
    // Create a Blob and generate a download link
    const blob = new Blob([fullHTML], { type: "text/html" });
