@@ -114,17 +114,19 @@ export async function downloadGeneratedPage(steps, text) {
             if (step) step.style.display = i === 0 ? "block" : "none";
          }
          appendNavButtons();
+         showStep(0); // 👈 this ensures step0's logic runs
       }
+
    
       function showStep(index) {
          const step = document.querySelector(".step" + index);
          if (step) {
             step.style.display = "block";
+            executeAllCodeBlocks();
             evaluateConditions();
             updateInlineVariables();
          }
       }
-
    
       function hideStep(index) {
          const step = document.querySelector(".step" + index);
@@ -239,6 +241,35 @@ export async function downloadGeneratedPage(steps, text) {
    </script>
    `;
 
+   const executeCodeBlocks = `
+      <script>
+         function executeAllCodeBlocks() {
+            const codeBlocks = document.querySelectorAll("div.code");
+      
+            codeBlocks.forEach(div => {
+               const codeElement = div.querySelector("pre code");
+               if (!codeElement) return;
+      
+               const userCode = codeElement.textContent.trim();
+      
+               try {
+                  const wrappedFunction = new Function(
+                     ...Object.keys(variables),
+                     \`\${userCode}; return { \${Object.keys(variables).join(", ")} };\`
+                  );
+      
+                  const updatedVariables = wrappedFunction(...Object.values(variables));
+                  Object.assign(variables, updatedVariables);
+               } catch (e) {
+                  console.warn("Error evaluating code block:", e);
+               }
+      
+               div.style.display = "none";
+            });
+         }
+      </script>
+   `;
+
    const fullHTML = `
    <!DOCTYPE html>
    <html lang="en">
@@ -255,6 +286,7 @@ export async function downloadGeneratedPage(steps, text) {
       ${variablesScript}
       ${inputQuestionsJS}
       ${buttonScript}
+      ${executeCodeBlocks}
       ${executeInlineVariables}
       ${executeShowIf}
       ${navScript}
