@@ -204,30 +204,15 @@ export function parseSection(step, stepContent, stepNumber, start) {
          let start = i;
          i = findBlockEnd(step, start);
          const userCode = joinToString(step, start, i);
-         runUserCode(userCode, variables);
+         const userCodeContainer = document.createElement("div");
+         userCodeContainer.classList.add("code");
+         runUserCode(userCode, variables, userCodeContainer);
+         stepContent.appendChild(userCodeContainer);
       } else if (/^\{\s*showif/.test(line.trim())) {
          savedText = appendText(boolForAppendingText, savedText);
          const showIfContainer = document.createElement("div");
-         // showIfContainer.classList.add("if");
-
          i = createShowif(i, step, showIfContainer);
          stepContent.appendChild(showIfContainer);
-         // const text = joinToArray(step, 0, step.length);
-         // const num = executeShowIf(
-         //    text,
-         //    variables,
-         //    i,
-         //    endIndex,
-         //    stepContent,
-         //    stepNumber,
-         //    i
-         // );
-         // if (num < 0) {
-         //    end = true;
-         //    break;
-         // }
-         // i += num;
-         // console.log("continuing from i: ", i);
       } else if (line.trim().startsWith("{end}")) {
          savedText = appendText(boolForAppendingText, savedText);
          end = true;
@@ -236,7 +221,7 @@ export function parseSection(step, stepContent, stepNumber, start) {
       } else {
          const regex = /\{\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*\}/g;
          if (line.match(regex)) {
-            line = checkForCodeInLine(line);
+            // line = checkForCodeInLine(line);
          }
          if (line && line.trim() != "}") {
             savedText += line + "\n";

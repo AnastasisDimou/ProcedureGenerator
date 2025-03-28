@@ -1,4 +1,5 @@
 import { parseSection } from "./parser.js";
+import { createText } from "./procedures.js";
 
 export function findBlockEnd(text, startIndex) {
    // startIndex = 0;
@@ -147,8 +148,13 @@ function makeIfstatements(code) {
    return modifiedCode;
 }
 
-export function runUserCode(userCode, variables) {
+export function runUserCode(userCode, variables, userCodeContainer) {
    userCode = extractVariablesAndCleanCode(userCode, variables, false);
+   const lines = userCode.split("\n");
+   if (lines[0].trim() === "{") lines.shift();
+   if (lines[lines.length - 1].trim() === "}") lines.pop();
+   const cleaned = lines.join("\n");
+   userCodeContainer.appendChild(createText(cleaned, ""));
 
    // Wrap user code in a function that returns the modified variables object
    const wrappedFunction = new Function(

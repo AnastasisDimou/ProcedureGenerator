@@ -120,7 +120,8 @@ export async function downloadGeneratedPage(steps, text) {
          const step = document.querySelector(".step" + index);
          if (step) {
             step.style.display = "block";
-            evaluateConditions(); // ← added this line
+            evaluateConditions();
+            updateInlineVariables();
          }
       }
 
@@ -172,40 +173,67 @@ export async function downloadGeneratedPage(steps, text) {
    `;
 
    const executeShowIf = `
-   <script>
-      function evaluateConditions() {
-         const visibleSteps = [...document.querySelectorAll('[class^="step"]')]
-            .filter(div => div.style.display !== 'none');
-   
-         visibleSteps.forEach(step => {
-            const ifBlocks = step.querySelectorAll('.if');
-            ifBlocks.forEach(ifDiv => {
-               const expr = ifDiv.textContent.trim();
-               let result = false;
-   
-               try {
-                  const evaluate = new Function(
-                     ...Object.keys(variables),
-                     \`try { return \${expr}; } catch (error) {
-                        if (error instanceof ReferenceError) return true;
-                        throw error;
-                     }\`
-                  );
-                  result = evaluate(...Object.values(variables));
-               } catch (e) {
-                  console.warn("Failed to evaluate condition:", expr, e);
-               }
-   
-               const ifContent = ifDiv.parentElement.querySelector('.ifContent');
-   
-               if (result) {
+      <script>
+         function evaluateConditions() {
+            const visibleSteps = [...document.querySelectorAll('[class^="step"]')]
+               .filter(div => div.style.display !== 'none');
+      
+            visibleSteps.forEach(step => {
+               const ifBlocks = step.querySelectorAll('.if');
+               ifBlocks.forEach(ifDiv => {
+                  const expr = ifDiv.textContent.trim();
+                  let result = false;
+      
+                  try {
+                     const evaluate = new Function(
+                        ...Object.keys(variables),
+                        \`try { return \${expr}; } catch (error) {
+                           if (error instanceof ReferenceError) return true;
+                           throw error;
+                        }\`
+                     );
+                     result = evaluate(...Object.values(variables));
+                  } catch (e) {
+                     console.warn("Failed to evaluate condition:", expr, e);
+                  }
+      
+                  const ifContents = ifDiv.parentElement.querySelectorAll('.ifContent');
+      
                   ifDiv.style.display = 'none';
-                  if (ifContent) ifContent.style.display = 'block';
-               } else {
-                  ifDiv.style.display = 'none';
-                  if (ifContent) ifContent.style.display = 'none';
-               }
+      
+                  if (result) {
+                     ifContents.forEach(div => div.style.display = 'block');
+                  } else {
+                     ifContents.forEach(div => div.style.display = 'none');
+                  }
+               });
             });
+         }
+      </script>
+   `;
+
+   const executeInlineVariables = `
+   <script>
+      function checkForCodeInLine(line) {
+         const regex = /\\{\\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*\\}/g;
+         return line.replace(regex, (_, varName) => variables[varName] ?? \`{\${varName}}\`);
+      }
+   
+      function updateInlineVariables() {
+         const divs = document.querySelectorAll("div:not(.if):not(.code)");
+   
+         divs.forEach(div => {
+            const walker = document.createTreeWalker(div, NodeFilter.SHOW_TEXT, null, false);
+            let node;
+            while ((node = walker.nextNode())) {
+               // Cache original if not already stored
+               if (!node.parentElement.hasAttribute("data-original")) {
+                  node.parentElement.setAttribute("data-original", node.textContent);
+               }
+   
+               const original = node.parentElement.getAttribute("data-original");
+               node.textContent = checkForCodeInLine(original);
+            }
          });
       }
    </script>
@@ -227,6 +255,7 @@ export async function downloadGeneratedPage(steps, text) {
       ${variablesScript}
       ${inputQuestionsJS}
       ${buttonScript}
+      ${executeInlineVariables}
       ${executeShowIf}
       ${navScript}
    </body>
