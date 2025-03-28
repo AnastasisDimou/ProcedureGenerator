@@ -118,8 +118,12 @@ export async function downloadGeneratedPage(steps, text) {
    
       function showStep(index) {
          const step = document.querySelector(".step" + index);
-         if (step) step.style.display = "block";
+         if (step) {
+            step.style.display = "block";
+            evaluateConditions(); // ← added this line
+         }
       }
+
    
       function hideStep(index) {
          const step = document.querySelector(".step" + index);
@@ -167,6 +171,46 @@ export async function downloadGeneratedPage(steps, text) {
    </script>
    `;
 
+   const executeShowIf = `
+   <script>
+      function evaluateConditions() {
+         const visibleSteps = [...document.querySelectorAll('[class^="step"]')]
+            .filter(div => div.style.display !== 'none');
+   
+         visibleSteps.forEach(step => {
+            const ifBlocks = step.querySelectorAll('.if');
+            ifBlocks.forEach(ifDiv => {
+               const expr = ifDiv.textContent.trim();
+               let result = false;
+   
+               try {
+                  const evaluate = new Function(
+                     ...Object.keys(variables),
+                     \`try { return \${expr}; } catch (error) {
+                        if (error instanceof ReferenceError) return true;
+                        throw error;
+                     }\`
+                  );
+                  result = evaluate(...Object.values(variables));
+               } catch (e) {
+                  console.warn("Failed to evaluate condition:", expr, e);
+               }
+   
+               const ifContent = ifDiv.parentElement.querySelector('.ifContent');
+   
+               if (result) {
+                  ifDiv.style.display = 'none';
+                  if (ifContent) ifContent.style.display = 'block';
+               } else {
+                  ifDiv.style.display = 'none';
+                  if (ifContent) ifContent.style.display = 'none';
+               }
+            });
+         });
+      }
+   </script>
+   `;
+
    const fullHTML = `
    <!DOCTYPE html>
    <html lang="en">
@@ -183,6 +227,7 @@ export async function downloadGeneratedPage(steps, text) {
       ${variablesScript}
       ${inputQuestionsJS}
       ${buttonScript}
+      ${executeShowIf}
       ${navScript}
    </body>
    </html>`;

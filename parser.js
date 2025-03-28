@@ -307,7 +307,9 @@ function createShowif(i, step, showIfContainer) {
          if (firstLine === step[i]) {
             showIfContainer.appendChild(createText(step[i].trim(), "if"));
          } else {
-            showIfContainer.appendChild(createText(step[i].trim(), ""));
+            showIfContainer.appendChild(
+               createText(step[i].trim(), "ifContent")
+            );
          }
       }
    }
