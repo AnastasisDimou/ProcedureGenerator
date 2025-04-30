@@ -8,10 +8,10 @@ export function findBlockEnd(text, startIndex) {
    let stringChar = "";
    let foundOpening = false;
 
-   console.log("The text is: ");
-   console.log(text);
+   // console.log("The text is: ");
+   // console.log(text);
 
-   console.log("it starts at ", text[startIndex]);
+   // console.log("it starts at ", text[startIndex]);
    for (let i = startIndex; i < text.length; i++) {
       const chunk = text[i];
       let j = 0;
@@ -68,11 +68,11 @@ export function findBlockEnd(text, startIndex) {
    throw new Error("Unmatched closing brace '}' not found.");
 }
 
-function extractVariablesAndCleanCode(userCode, variables, wholeParsing) {
+function extractVariablesAndCleanCode(userCode, variables) {
    const varRegex =
       /^(var|let|const)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)(?:\s*=\s*([^;\n]+))?\s*;?\s*$/m;
 
-   let lines = userCode.split("\n"); // Split code into lines
+   let lines = userCode.split("\n");
 
    for (let i = 0; i < lines.length; i++) {
       let line = lines[i].trimStart();
@@ -82,23 +82,20 @@ function extractVariablesAndCleanCode(userCode, variables, wholeParsing) {
          const [, , varName, value] = match;
          variables[varName] = value ? value.trim() : undefined;
 
-         // Remove the variable declaration
-         lines[i] = "";
+         // Replace with assignment or standalone variable reference
+         lines[i] =
+            value !== undefined
+               ? `${varName} = ${value.trim()};`
+               : `${varName};`;
       }
    }
 
    let cleanedCode = lines.filter((line) => line.trim() !== "").join("\n");
 
-   // Compute variables that have a value
    for (const varName in variables) {
       if (variables[varName] !== undefined) {
          variables[varName] = computeVariable(varName, variables);
       }
-   }
-
-   if (wholeParsing) {
-      console.log(wholeParsing);
-      cleanedCode = makeIfstatements(cleanedCode);
    }
 
    return cleanedCode;
@@ -138,18 +135,10 @@ function computeVariable(varName, variables) {
    return expression;
 }
 
-function makeIfstatements(code) {
-   const regex = /if\s*\(\s*[^)]+\s*\)/g;
-
-   const modifiedCode = code.replace(regex, (match) =>
-      match.replace(/\(.*\)/, "(true)")
-   );
-
-   return modifiedCode;
-}
-
 export function runUserCode(userCode, variables, userCodeContainer) {
-   userCode = extractVariablesAndCleanCode(userCode, variables, false);
+   userCode = extractVariablesAndCleanCode(userCode, variables);
+   console.log("The cleaned code is: ");
+   console.log(userCode);
    const lines = userCode.split("\n");
    if (lines[0].trim() === "{") lines.shift();
    if (lines[lines.length - 1].trim() === "}") lines.pop();
@@ -167,6 +156,7 @@ export function runUserCode(userCode, variables, userCodeContainer) {
 
    // Update original variables object
    Object.assign(variables, updatedVariables);
+   return userCode;
 }
 
 export function executeShowIf(

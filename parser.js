@@ -38,21 +38,18 @@ export function splitSteps(textFile) {
    return stepsArray;
 }
 
-function questionParsing(line) {
-   // One of question
+function questionParsing(line, container) {
    const regexForMultipleChoice =
       /^(.*?)\[(\w+)\]\s*\(\s*One of:\s*([\w\s,]+)\)$/;
 
    if (regexForMultipleChoice.test(line)) {
       const str = line.substring(2).trim();
       const regexForSpliting = /^(.*)\[(.*?)\]\s*\(\s*One of:\s*(.*?)\)$/;
-      // TODO add no numbers at the start of the variable
       const match = str.match(regexForSpliting);
-      // making the array that holds the options
       const questions = match[3].split(",").map((option) => option.trim());
-      // console.log("Question:", match[1]);
+
       if (match[2] in variables) {
-         stepContent.appendChild(
+         container.appendChild(
             createMultipleChoiceQuestion(
                match[1],
                questions,
@@ -65,21 +62,14 @@ function questionParsing(line) {
          );
       }
    } else {
-      // Normal input question
       const str = line.substring(2).trim();
-      // regex that splits the question in three parts.
-      // The actual question, the variable, and the question type;
-      // TODO no numbers at the start of the variable
       const regexForSpliting = /^(.*?)\[(.*?)\]\s*(?:\(([^)]+)\))?$/;
-
       const match = str.match(regexForSpliting);
       let type = match[3] || "text";
 
-      console.log("Match[2] is: ", match[2]);
-
       if (match[2] in variables) {
          type = type.trim();
-         stepContent.appendChild(
+         container.appendChild(
             createInputQuestion(match[1], type, match[2], (answer) => {
                variables[match[2]] = answer;
                currentStep++;
@@ -90,155 +80,133 @@ function questionParsing(line) {
    allSteps++;
 }
 
-function checkForCodeInLine(line) {
-   const regex = /\{\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\}/g;
-   return line.replace(
-      regex,
-      (_, varName) => variables[varName] ?? `{${varName}}`
-   );
-}
-
-// Helper to create and await a new "Next" button
-function createButtonsAndWait(nextLabel, backLabel, showBack) {
-   return new Promise((resolve) => {
-      const container = document.getElementById("website_content");
-      if (!container) {
-         console.error('Element with id "website_content" not found.');
-         return;
-      }
-
-      // Create a container for the buttons
-      const buttonContainer = document.createElement("div");
-      buttonContainer.style.display = "flex";
-      buttonContainer.style.gap = "600px";
-      buttonContainer.style.marginTop = "20px";
-
-      // Create buttons
-      const nextButton = document.createElement("button");
-      nextButton.textContent = nextLabel;
-
-      const backButton = document.createElement("button");
-      backButton.textContent = backLabel;
-
-      // Append buttons to the container
-      if (showBack) buttonContainer.appendChild(backButton); // Only append if showBack is true
-      buttonContainer.appendChild(nextButton);
-
-      // Append the container to #website_content
-      container.appendChild(buttonContainer);
-
-      // Next button event
-      nextButton.addEventListener("click", () => {
-         cleanup();
-         resolve("next"); // Proceed with loop
-      });
-
-      // Back button event (only if it exists)
-      if (showBack) {
-         backButton.addEventListener("click", () => {
-            cleanup();
-            resolve("back"); // Go back one step
-         });
-      }
-
-      function cleanup() {
-         buttonContainer.remove(); // Remove the entire button container
-      }
-   });
-}
-
 let parsedContent = [];
 
 export async function parser(steps, startIndex) {
    const linesPerStep = steps.map((step) => step.split("\n"));
-   let stepNumber = startIndex;
+   const contentContainer = document.getElementById("website_content");
+   parsedContent = []; // clear it
 
    for (let index = startIndex; index < linesPerStep.length; index++) {
       const step = linesPerStep[index];
-      stepContent = document.createElement("div");
       allSteps = 1;
       finished = false;
 
-      // Process each line
-      const res = parseSection(step, stepContent, stepNumber, 0);
-      console.log(parsedContent);
-      // Stop if we've reached {end}
+      const res = parseSection(step, index, 0, contentContainer);
       if (res === 0) {
          createFinalBackButton(parsedContent, steps);
          break;
       }
-
-      // If we have more steps, show the "Next" button and wait for click
-      // if (stepNumber < linesPerStep.length) {
-      //    const showBack = stepNumber > 0; // Only show "Back" if not on the first step
-      //    const action = await createButtonsAndWait("Next", "Back", showBack);
-
-      //    if (action === "next") {
-      //       stepNumber++; // Move forward
-      //    } else if (action === "back") {
-      //       parsedContent.pop();
-      //       renderHistory(parsedContent, steps);
-      //       break;
-      //    }
-      // }
-      stepNumber++;
    }
+
+   // Save everything that was appended to website_content
+   parsedContent[0] = Array.from(contentContainer.children);
+
+   contentContainer.innerHTML = ""; // prevents double inclusion
 
    return parsedContent;
 }
 
-export function parseSection(step, stepContent, stepNumber, start) {
+function classifyLine(line) {
+   const trimmed = line.trim();
+   if (trimmed.startsWith("Q:")) return "question";
+   if (trimmed === "{") return "codeblock_start";
+   if (/^\{\s*showif/.test(trimmed)) return "showif_start";
+   if (trimmed.startsWith("{end}")) return "end";
+   if (trimmed === "---") return "separator";
+   if (trimmed === "}") return "block_end";
+   return "text";
+}
+
+export function parseSection(step, stepNumber, start, contentContainer) {
    let savedText = "";
    let boolForAppendingText = false;
    let end = false;
    let i;
-   const contentContainer = document.getElementById("website_content");
-   for (i = start; i < step.length; i++) {
-      let line = step[i];
 
-      if (line.trim().startsWith("Q:")) {
-         savedText = appendText(boolForAppendingText, savedText);
-         questionParsing(line);
-      } else if (line.trimEnd() === "{") {
-         savedText = appendText(boolForAppendingText, savedText);
-         let start = i;
-         i = findBlockEnd(step, start);
-         const userCode = joinToString(step, start, i);
-         const userCodeContainer = document.createElement("div");
-         userCodeContainer.classList.add("code");
-         runUserCode(userCode, variables, userCodeContainer);
-         stepContent.appendChild(userCodeContainer);
-      } else if (/^\{\s*showif/.test(line.trim())) {
-         savedText = appendText(boolForAppendingText, savedText);
-         const showIfContainer = document.createElement("div");
-         i = createShowif(i, step, showIfContainer);
-         stepContent.appendChild(showIfContainer);
-      } else if (line.trim().startsWith("{end}")) {
-         savedText = appendText(boolForAppendingText, savedText);
-         end = true;
-         stepContent.appendChild(createText("End of procedure", ""));
-         break;
-      } else {
-         const regex = /\{\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*\}/g;
-         if (line.match(regex)) {
-            // line = checkForCodeInLine(line);
+   for (i = start; i < step.length; i++) {
+      const line = step[i];
+      const type = classifyLine(line);
+
+      switch (type) {
+         case "question": {
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               contentContainer
+            );
+            questionParsing(line, contentContainer);
+            boolForAppendingText = false;
+            break;
          }
-         if (line && line.trim() != "}") {
-            savedText += line + "\n";
-            // stepContent.appendChild(createText(line));
-            boolForAppendingText = true;
+         case "codeblock_start": {
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               contentContainer
+            );
+            const codeStart = i;
+            i = findBlockEnd(step, codeStart);
+            const userCode = joinToString(step, codeStart, i);
+            const codeContainer = document.createElement("div");
+            codeContainer.classList.add("code");
+            const cleanCode = runUserCode(userCode, variables, codeContainer);
+            codeContainer.innerHTML = cleanCode;
+            contentContainer.appendChild(codeContainer);
+            boolForAppendingText = false;
+            break;
+         }
+         case "showif_start": {
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               contentContainer
+            );
+            const showIfContainer = document.createElement("div");
+            showIfContainer.classList.add("if");
+            i = createShowif(i, step, contentContainer);
+            contentContainer.appendChild(showIfContainer);
+            boolForAppendingText = false;
+            break;
+         }
+         case "end": {
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               contentContainer
+            );
+            contentContainer.appendChild(createText("End of procedure", ""));
+            end = true;
+            break;
+         }
+         case "separator": {
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               contentContainer
+            );
+            const sep = document.createElement("div");
+            sep.classList.add("line-separator");
+            sep.setAttribute("data-step-index", stepNumber++);
+            contentContainer.appendChild(sep);
+            savedText = "";
+            boolForAppendingText = false;
+            break;
+         }
+         case "text": {
+            if (line.trim() !== "}") {
+               savedText += line + "\n";
+               boolForAppendingText = true;
+            }
+            break;
          }
       }
+
+      if (end) break;
    }
 
-   savedText = appendText(boolForAppendingText, savedText);
-   parsedContent[stepNumber] = stepContent;
-   contentContainer.appendChild(stepContent);
-
-   stepContent.scrollIntoView({ behavior: "smooth", block: "start" });
-
-   if (end) return 0;
-   return i;
+   savedText = appendText(boolForAppendingText, savedText, contentContainer);
+   return end ? 0 : i;
 }
 
 function createFinalBackButton(parsedContent, steps) {
@@ -270,41 +238,115 @@ function createFinalBackButton(parsedContent, steps) {
    });
 }
 
-function createShowif(i, step, showIfContainer) {
+function createShowif(i, step, contentContainer) {
    const end = findBlockEnd(step, i);
-
    const regexForDeleting = /showif|\{|\}/g;
-
    step[i] = step[i].replace(regexForDeleting, "");
-   const firstLine = step[i];
-   for (i; i < end; i++) {
+   const firstLine = step[i].trim();
+
+   let showIfContainer = document.createElement("div");
+   showIfContainer.classList.add("if");
+   showIfContainer.setAttribute("data-expression", firstLine);
+
+   let innerContainer = document.createElement("div");
+   showIfContainer.appendChild(innerContainer);
+
+   let savedText = "";
+   let boolForAppendingText = false;
+
+   for (; i < end; i++) {
       const line = step[i];
-      if (/^\{\s*showif/.test(line.trim())) {
-         const IfContainer = document.createElement("div");
-         // IfContainer.classList.add("if");
-         i = createShowif(i, step, IfContainer);
-         showIfContainer.appendChild(IfContainer);
-         continue;
-      }
-      if (step[i].trim() != "}") {
-         // trim() removes the box around the text
-         console.log("this gets appended: ", step[i]);
-         if (firstLine === step[i]) {
-            showIfContainer.appendChild(createText(step[i].trim(), "if"));
-         } else {
-            showIfContainer.appendChild(
-               createText(step[i].trim(), "ifContent")
+      const type = classifyLine(line);
+
+      switch (type) {
+         case "showif_start": {
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               innerContainer
             );
+            i = createShowif(i, step, innerContainer); // recursive
+            boolForAppendingText = false;
+            break;
+         }
+         case "question": {
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               innerContainer
+            );
+            questionParsing(line, innerContainer);
+            boolForAppendingText = false;
+            break;
+         }
+         case "codeblock_start": {
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               innerContainer
+            );
+            const codeStart = i;
+            i = findBlockEnd(step, codeStart);
+            const userCode = joinToString(step, codeStart, i);
+            const codeContainer = document.createElement("div");
+            codeContainer.classList.add("code");
+            const cleanCode = runUserCode(userCode, variables, codeContainer);
+            codeContainer.innerHTML = cleanCode;
+            innerContainer.appendChild(codeContainer);
+            boolForAppendingText = false;
+            break;
+         }
+         case "separator": {
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               innerContainer
+            );
+            contentContainer.appendChild(showIfContainer);
+
+            const sep = document.createElement("div");
+            sep.classList.add("line-separator");
+            contentContainer.appendChild(sep);
+
+            // start new showIf block with same expression
+            showIfContainer = document.createElement("div");
+            showIfContainer.classList.add("if");
+            showIfContainer.setAttribute("data-expression", firstLine);
+
+            innerContainer = document.createElement("div");
+            showIfContainer.appendChild(innerContainer);
+
+            boolForAppendingText = false;
+            break;
+         }
+         case "end": {
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               innerContainer
+            );
+            innerContainer.appendChild(createText("End of procedure", ""));
+            contentContainer.appendChild(showIfContainer);
+            return -1;
+         }
+         case "text": {
+            if (line.trim() !== "}" && line.trim() !== firstLine) {
+               savedText += line + "\n";
+               boolForAppendingText = true;
+            }
+            break;
          }
       }
    }
 
+   savedText = appendText(boolForAppendingText, savedText, innerContainer);
+   contentContainer.appendChild(showIfContainer);
    return i;
 }
 
-function appendText(flag, text) {
+function appendText(flag, text, container = stepContent) {
    if (flag) {
-      stepContent.appendChild(createText(text, ""));
+      container.appendChild(createText(text.trim(), ""));
       return "";
    }
    return text;
@@ -318,6 +360,3 @@ export function joinToString(step, start, end) {
 export function joinToArray(step, start, end) {
    return step.slice(start, end + 1);
 }
-
-// TODO
-// whenver generate is hit all variables should be forgotten

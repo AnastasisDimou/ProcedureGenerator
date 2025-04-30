@@ -76,7 +76,8 @@ function storeInput() {
    downloadSpacer.style.height = "60px"; // Adjusted height to prevent collisions
    downloadSpacer.style.display = "inline-block";
 
-   const steps = splitSteps(inputText);
+   // const steps = splitSteps(inputText);
+   const steps = [inputText];
 
    // Create Download button (Bottom-Right Corner)
    const downloadButton = document.createElement("button");
