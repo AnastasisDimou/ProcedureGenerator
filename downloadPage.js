@@ -193,8 +193,9 @@ export async function downloadGeneratedPage(steps, text) {
                showStep(currentStep);
                scrollToStep(currentStep);
    
-               updateInlineVariables();   
-               evaluateConditions();     
+               updateInlineVariables();
+               evaluateConditions();
+               executeAllCodeBlocks(); // ← added here
                appendNavButtons();
             });
             buttonContainer.appendChild(nextButton);
@@ -274,6 +275,7 @@ export async function downloadGeneratedPage(steps, text) {
    const executeCodeBlocks = `
    <script defer>
       function executeAllCodeBlocks() {
+         console.log("Get's in the function");
          const visibleSteps = [...document.querySelectorAll('[class^="step"]')]
             .filter(div => div.style.display !== 'none');
    
@@ -281,7 +283,6 @@ export async function downloadGeneratedPage(steps, text) {
             const codeBlocks = step.querySelectorAll("div.code");
    
             codeBlocks.forEach(div => {
-   
                const userCode = div.textContent.trim();
                if (!userCode) return;
    
@@ -299,6 +300,8 @@ export async function downloadGeneratedPage(steps, text) {
                div.style.display = "none";
             });
          });
+   
+         console.log("Variables after execution:", variables);
       }
    </script>
    `;

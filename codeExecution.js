@@ -82,11 +82,11 @@ function extractVariablesAndCleanCode(userCode, variables) {
          const [, , varName, value] = match;
          variables[varName] = value ? value.trim() : undefined;
 
-         // Replace with assignment or standalone variable reference
-         lines[i] =
-            value !== undefined
-               ? `${varName} = ${value.trim()};`
-               : `${varName};`;
+         if (value !== undefined) {
+            lines[i] = `${varName} = ${value.trim()};`;
+         } else {
+            lines[i] = ""; // Remove declaration without assignment
+         }
       }
    }
 

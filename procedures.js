@@ -1,23 +1,5 @@
 import { markdown } from "./markdown.js";
 
-// function that makes the objects
-function focusNextQuestion() {
-   if (allSteps > currentStep) {
-      const questions = document.getElementById("website_content").children;
-      // TODO the making of the array should be it's own function
-      const focusableElements = [];
-      let index = 0;
-      for (let i = 0; i < questions.length; i++) {
-         if (questions[i].querySelector("input, button")) {
-            focusableElements[index] =
-               questions[i].querySelector("input, button");
-            index++;
-         }
-      }
-      focusableElements[currentStep].focus();
-   }
-}
-
 export function createInputQuestion(
    questionText,
    type,
