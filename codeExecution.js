@@ -156,6 +156,7 @@ export function runUserCode(userCode, variables, userCodeContainer) {
 
    // Update original variables object
    Object.assign(variables, updatedVariables);
+
    return userCode;
 }
 

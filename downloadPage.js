@@ -179,7 +179,7 @@ export async function downloadGeneratedPage(steps, text) {
                currentStep = visitedSteps[visitedSteps.length - 1];
                hideStepsAfter(currentStep);
                scrollToStep(currentStep);
-               appendNavButtons();
+               appendNavButtons(); // No updates on Back
             });
             buttonContainer.appendChild(backButton);
          }
@@ -193,9 +193,9 @@ export async function downloadGeneratedPage(steps, text) {
                showStep(currentStep);
                scrollToStep(currentStep);
    
+               executeAllCodeBlocks();
                updateInlineVariables();
                evaluateConditions();
-               executeAllCodeBlocks(); // ← added here
                appendNavButtons();
             });
             buttonContainer.appendChild(nextButton);
