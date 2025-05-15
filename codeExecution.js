@@ -70,27 +70,28 @@ export function findBlockEnd(text, startIndex) {
 
 function extractVariablesAndCleanCode(userCode, variables) {
    const varRegex =
-      /^(var|let|const)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)(?:\s*=\s*([^;\n]+))?\s*;?\s*$/m;
+      /^\s*(var|let|const)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*(?:=\s*(['"`][\s\S]*?['"`]|[^;\n]+))?\s*;?\s*$/;
 
    let lines = userCode.split("\n");
 
    for (let i = 0; i < lines.length; i++) {
-      let line = lines[i].trimStart();
-      let match = line.match(varRegex);
+      const line = lines[i].trimStart();
+      const match = line.match(varRegex);
 
       if (match) {
          const [, , varName, value] = match;
+
          variables[varName] = value ? value.trim() : undefined;
 
          if (value !== undefined) {
             lines[i] = `${varName} = ${value.trim()};`;
          } else {
-            lines[i] = ""; // Remove declaration without assignment
+            lines[i] = `${varName} = undefined;`;
          }
       }
    }
 
-   let cleanedCode = lines.filter((line) => line.trim() !== "").join("\n");
+   const cleanedCode = lines.filter((line) => line.trim() !== "").join("\n");
 
    for (const varName in variables) {
       if (variables[varName] !== undefined) {
@@ -108,46 +109,30 @@ function computeVariable(varName, variables) {
       expression = expression.replace(/["']/g, "");
    }
 
-   // If variable is undefined, empty, or only whitespace, return undefined
-   // if (expression === undefined || expression.trim() === "") return undefined;
-
-   // expression = expression.replace(/,$/, "").trim(); // Remove trailing commas
-
-   // Handle empty quoted strings as undefined
-   // if (/^["'].*["']$/.test(expression)) {
-   //    const unquoted = expression.slice(1, -1).trim();
-   //    if (unquoted === "") return undefined; // Treat empty strings as undefined
-   //    return unquoted;
-   // }
-
    // If the expression is purely numeric, convert it to a number
    if (!isNaN(expression) && !isNaN(parseFloat(expression))) {
       return parseFloat(expression);
    }
 
-   // Ensure the expression does not contain unsafe characters
-   // if (!/^[\w\s+\-*/().]+$/.test(expression)) return undefined;
-
-   // Safely evaluate the expression with only the provided variables
-   // return new Function(...Object.keys(variables), `return (${expression});`)(
-   //    ...Object.values(variables)
-   // );
    return expression;
 }
 
 export function runUserCode(userCode, variables, userCodeContainer) {
    userCode = extractVariablesAndCleanCode(userCode, variables);
-   console.log("The cleaned code is: ");
-   console.log(userCode);
    const lines = userCode.split("\n");
+
    if (lines[0].trim() === "{") lines.shift();
+
    if (lines[lines.length - 1].trim() === "}") lines.pop();
+
    const cleaned = lines.join("\n");
+
    userCodeContainer.appendChild(createText(cleaned, ""));
 
    // Wrap user code in a function that returns the modified variables object
    const wrappedFunction = new Function(
       ...Object.keys(variables),
+
       `${userCode}; return { ${Object.keys(variables).join(", ")} };`
    );
 
@@ -155,7 +140,11 @@ export function runUserCode(userCode, variables, userCodeContainer) {
    const updatedVariables = wrappedFunction(...Object.values(variables));
 
    // Update original variables object
+
    Object.assign(variables, updatedVariables);
+
+   console.log("User code is: ");
+   console.log(userCode);
 
    return userCode;
 }

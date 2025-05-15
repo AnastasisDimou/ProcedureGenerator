@@ -1,6 +1,5 @@
 import { findBlockEnd } from "./codeExecution.js";
 import { runUserCode } from "./codeExecution.js";
-import { executeShowIf } from "./codeExecution.js";
 import { createText } from "./procedures.js";
 import { createInputQuestion } from "./procedures.js";
 import { createMultipleChoiceQuestion } from "./procedures.js";
@@ -151,7 +150,10 @@ export function parseSection(step, stepNumber, start, contentContainer) {
             const codeContainer = document.createElement("div");
             codeContainer.classList.add("code");
             const cleanCode = runUserCode(userCode, variables, codeContainer);
-            codeContainer.innerHTML = cleanCode;
+            console.log("Cleaned code is: ");
+            console.log(cleanCode);
+            codeContainer.textContent = cleanCode;
+            console.log(codeContainer.innerHTML);
             contentContainer.appendChild(codeContainer);
             boolForAppendingText = false;
             break;

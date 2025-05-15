@@ -246,31 +246,26 @@ export async function downloadGeneratedPage(steps, text) {
 `;
 
    const executeInlineVariables = `
-      <script defer>
-         function checkForCodeInLine(line) {
-            const regex = /\\{\\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*\\}/g;
-            return line.replace(regex, (_, varName) => variables[varName] ?? \`{\${varName}}\`);
+<script defer>
+   function checkForCodeInLine(line) {
+      const regex = /{ *([a-zA-Z_$][a-zA-Z0-9_$]*) *}/g;
+      return line.replace(regex, (_, varName) => variables[varName] ?? \`{\${varName}}\`);
+   }
+
+   function updateInlineVariables() {
+      const divs = document.querySelectorAll("div:not(.if):not(.code)");
+
+      divs.forEach(div => {
+         if (!div.hasAttribute("data-original-html")) {
+            div.setAttribute("data-original-html", div.innerHTML);
          }
-      
-         function updateInlineVariables() {
-            const divs = document.querySelectorAll("div:not(.if):not(.code)");
-      
-            divs.forEach(div => {
-               const walker = document.createTreeWalker(div, NodeFilter.SHOW_TEXT, null, false);
-               let node;
-               while ((node = walker.nextNode())) {
-                  // Cache original if not already stored
-                  if (!node.parentElement.hasAttribute("data-original")) {
-                     node.parentElement.setAttribute("data-original", node.textContent);
-                  }
-      
-                  const original = node.parentElement.getAttribute("data-original");
-                  node.textContent = checkForCodeInLine(original);
-               }
-            });
-         }
-      </script>
-   `;
+
+         const original = div.getAttribute("data-original-html");
+         div.innerHTML = checkForCodeInLine(original);
+      });
+   }
+</script>
+`;
 
    const executeCodeBlocks = `
    <script defer>
@@ -285,6 +280,8 @@ export async function downloadGeneratedPage(steps, text) {
             codeBlocks.forEach(div => {
                const userCode = div.textContent.trim();
                if (!userCode) return;
+   
+               console.log("Executing code block:", userCode); // Debug line
    
                try {
                   const wrappedFunction = new Function(
