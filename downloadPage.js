@@ -247,21 +247,92 @@ export async function downloadGeneratedPage(steps, text) {
 
    const executeInlineVariables = `
 <script defer>
-   function checkForCodeInLine(line) {
-      const regex = /{ *([a-zA-Z_$][a-zA-Z0-9_$]*) *}/g;
-      return line.replace(regex, (_, varName) => variables[varName] ?? \`{\${varName}}\`);
+   function isOpeningTag(html) {
+      return /^<([a-z]+)(\\s|>)/i.test(html.trim()) && !html.trim().endsWith("/>");
+   }
+
+   function isClosingTag(html) {
+      return /^<\\/([a-z]+)>$/i.test(html.trim());
    }
 
    function updateInlineVariables() {
       const divs = document.querySelectorAll("div:not(.if):not(.code)");
 
       divs.forEach(div => {
-         if (!div.hasAttribute("data-original-html")) {
-            div.setAttribute("data-original-html", div.innerHTML);
+         const walker = document.createTreeWalker(div, NodeFilter.SHOW_TEXT, null, false);
+         const nodesToReplace = [];
+
+         let node;
+         while ((node = walker.nextNode())) {
+            const parent = node.parentElement;
+            if (!parent.hasAttribute("data-original")) {
+               parent.setAttribute("data-original", node.textContent);
+            }
+
+            const original = parent.getAttribute("data-original");
+            if (/{.*}/.test(original)) {
+               nodesToReplace.push({ node, original });
+            }
          }
 
-         const original = div.getAttribute("data-original-html");
-         div.innerHTML = checkForCodeInLine(original);
+         nodesToReplace.forEach(({ node, original }) => {
+            const container = document.createDocumentFragment();
+
+            const regex = /{ *([a-zA-Z_$][a-zA-Z0-9_$]*) *}/g;
+            let lastIndex = 0;
+            let match;
+
+            let currentWrapper = null;
+
+            while ((match = regex.exec(original))) {
+               const [fullMatch, varName] = match;
+               const before = original.slice(lastIndex, match.index);
+               if (before) {
+                  const textNode = document.createTextNode(before);
+                  currentWrapper ? currentWrapper.appendChild(textNode) : container.appendChild(textNode);
+               }
+
+               const value = variables[varName];
+
+               if (typeof value === "string" && isOpeningTag(value)) {
+                  // Start new wrapper
+                  const temp = document.createElement("div");
+                  temp.innerHTML = value.trim();
+                  currentWrapper = temp.firstElementChild;
+               } else if (typeof value === "string" && isClosingTag(value)) {
+                  // Close wrapper if exists
+                  if (currentWrapper) {
+                     container.appendChild(currentWrapper);
+                     currentWrapper = null;
+                  }
+               } else if (typeof value === "string" && /^<.*>$/.test(value.trim())) {
+                  // Full HTML block — inject directly
+                  const temp = document.createElement("div");
+                  temp.innerHTML = value;
+                  [...temp.childNodes].forEach(child => container.appendChild(child));
+               } else {
+                  // Fallback to text
+                  const textNode = document.createTextNode(value ?? fullMatch);
+                  currentWrapper ? currentWrapper.appendChild(textNode) : container.appendChild(textNode);
+               }
+
+               lastIndex = match.index + fullMatch.length;
+            }
+
+            const after = original.slice(lastIndex);
+            if (after) {
+               const textNode = document.createTextNode(after);
+               currentWrapper ? currentWrapper.appendChild(textNode) : container.appendChild(textNode);
+            }
+
+            // Final safety check
+            if (currentWrapper) {
+               container.appendChild(currentWrapper);
+               currentWrapper = null;
+            }
+
+            node.parentElement.replaceChild(container, node);
+         });
       });
    }
 </script>
@@ -280,8 +351,6 @@ export async function downloadGeneratedPage(steps, text) {
             codeBlocks.forEach(div => {
                const userCode = div.textContent.trim();
                if (!userCode) return;
-   
-               console.log("Executing code block:", userCode); // Debug line
    
                try {
                   const wrappedFunction = new Function(
