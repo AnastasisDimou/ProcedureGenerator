@@ -1,5 +1,4 @@
 import { variableReader } from "./parser.js";
-import { splitSteps } from "./parser.js";
 import { parser } from "./parser.js";
 import { downloadGeneratedPage } from "./downloadPage.js";
 
