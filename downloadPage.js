@@ -8,7 +8,7 @@ export async function downloadGeneratedPage(steps, text) {
    // Generate script tags using JSDelivr URLs and set them as ES modules
    // Full HTML with externally hosted scripts via JSDelivr
    let variables = variableReader(text);
-   let parsedContent = await parser(steps, 0);
+   let parsedContent = await parser(steps, 0, text);
 
    function wrapStep(elements, stepIndex) {
       const stepDiv = document.createElement("div");

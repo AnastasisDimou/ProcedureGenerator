@@ -5,8 +5,6 @@ import { createInputQuestion } from "./procedures.js";
 import { createMultipleChoiceQuestion } from "./procedures.js";
 import { renderHistory } from "./renderHistory.js";
 
-let allSteps;
-let finished;
 let stepContent;
 const variables = {};
 
@@ -79,9 +77,27 @@ function questionParsing(line, container) {
    allSteps++;
 }
 
+export function constVariableReader(textFile) {
+   const constVars = {};
+
+   // Matches: [varname] const: <html content>
+   const constRegex = /^\[([a-z_][a-z0-9_]*)]\s+const:\s*(.+)$/gim;
+
+   let match;
+   while ((match = constRegex.exec(textFile)) !== null) {
+      const varName = match[1];
+      const value = match[2].trim();
+      constVars[varName] = value;
+   }
+
+   console.log(constVars);
+   return constVars;
+}
+
 let parsedContent = [];
 
-export async function parser(steps, startIndex) {
+export async function parser(steps, startIndex, textFile) {
+   let constVars = constVariableReader(textFile);
    const linesPerStep = steps.map((step) => step.split("\n"));
    const contentContainer = document.getElementById("website_content");
    parsedContent = []; // clear it
@@ -91,7 +107,7 @@ export async function parser(steps, startIndex) {
       allSteps = 1;
       finished = false;
 
-      const res = parseSection(step, index, 0, contentContainer);
+      const res = parseSection(step, index, 0, contentContainer, constVars);
       if (res === 0) {
          createFinalBackButton(parsedContent, steps);
          break;
@@ -117,14 +133,35 @@ function classifyLine(line) {
    return "text";
 }
 
-export function parseSection(step, stepNumber, start, contentContainer) {
+function replaceConstVars(text, constVars) {
+   return text.replace(/\{const\s+([a-z_][a-z0-9_]*)}/gi, (match, varName) => {
+      if (constVars[varName] !== undefined) {
+         console.log(
+            `[constVar] Replacing {const ${varName}} with:`,
+            constVars[varName]
+         );
+         return constVars[varName];
+      } else {
+         console.warn(`[constVar] No match found for: {const ${varName}}`);
+         return match;
+      }
+   });
+}
+
+export function parseSection(
+   step,
+   stepNumber,
+   start,
+   contentContainer,
+   constVars
+) {
    let savedText = "";
    let boolForAppendingText = false;
    let end = false;
    let i;
 
    for (i = start; i < step.length; i++) {
-      const line = step[i];
+      let line = step[i];
       const type = classifyLine(line);
 
       switch (type) {
@@ -196,6 +233,7 @@ export function parseSection(step, stepNumber, start, contentContainer) {
             break;
          }
          case "text": {
+            line = replaceConstVars(line.trim(), constVars);
             if (line.trim() !== "}") {
                savedText += line + "\n";
                boolForAppendingText = true;
