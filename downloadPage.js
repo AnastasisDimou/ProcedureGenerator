@@ -171,6 +171,16 @@ export async function downloadGeneratedPage(steps, text) {
          const buttonContainer = step.querySelector(".nav-buttons");
          if (!buttonContainer) return;
    
+         const isEndStep = step.querySelector(".end") !== null;
+   
+         if (isEndStep) {
+            const endMessage = document.createElement("div");
+            endMessage.textContent = "End of procedure";
+            endMessage.style.fontWeight = "bold";
+            endMessage.style.marginBottom = "10px";
+            buttonContainer.appendChild(endMessage);
+         }
+   
          if (visitedSteps.length > 1) {
             const backButton = document.createElement("button");
             backButton.textContent = "Back";
@@ -184,7 +194,7 @@ export async function downloadGeneratedPage(steps, text) {
             buttonContainer.appendChild(backButton);
          }
    
-         if (currentStep < getTotalSteps() - 1) {
+         if (!isEndStep && currentStep < getTotalSteps() - 1) {
             const nextButton = document.createElement("button");
             nextButton.textContent = "Next";
             nextButton.addEventListener("click", () => {
@@ -207,6 +217,8 @@ export async function downloadGeneratedPage(steps, text) {
       });
    </script>
    `;
+   
+   
 
    const executeShowIf = `
    <script defer>

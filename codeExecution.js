@@ -143,9 +143,6 @@ export function runUserCode(userCode, variables, userCodeContainer) {
 
    Object.assign(variables, updatedVariables);
 
-   console.log("User code is: ");
-   console.log(userCode);
-
    return userCode;
 }
 

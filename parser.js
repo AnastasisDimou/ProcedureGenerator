@@ -158,7 +158,7 @@ export function parseSection(
    let savedText = "";
    let boolForAppendingText = false;
    let end = false;
-   let i;
+   let i;   
 
    for (i = start; i < step.length; i++) {
       let line = step[i];
@@ -187,10 +187,7 @@ export function parseSection(
             const codeContainer = document.createElement("div");
             codeContainer.classList.add("code");
             const cleanCode = runUserCode(userCode, variables, codeContainer);
-            console.log("Cleaned code is: ");
-            console.log(cleanCode);
             codeContainer.textContent = cleanCode;
-            console.log(codeContainer.innerHTML);
             contentContainer.appendChild(codeContainer);
             boolForAppendingText = false;
             break;
@@ -214,8 +211,9 @@ export function parseSection(
                savedText,
                contentContainer
             );
-            contentContainer.appendChild(createText("End of procedure", ""));
-            end = true;
+            const endMarker = document.createElement("div");
+            endMarker.classList.add("end");
+            contentContainer.appendChild(endMarker);
             break;
          }
          case "separator": {
@@ -365,9 +363,11 @@ function createShowif(i, step, contentContainer) {
                savedText,
                innerContainer
             );
-            innerContainer.appendChild(createText("End of procedure", ""));
+            const endMarker = document.createElement("div");
+            endMarker.classList.add("end");
+            innerContainer.appendChild(endMarker);
             contentContainer.appendChild(showIfContainer);
-            return -1;
+            break;
          }
          case "text": {
             if (line.trim() !== "}" && line.trim() !== firstLine) {
