@@ -217,8 +217,6 @@ export async function downloadGeneratedPage(steps, text) {
       });
    </script>
    `;
-   
-   
 
    const executeShowIf = `
    <script defer>
