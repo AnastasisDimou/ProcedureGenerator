@@ -59,6 +59,7 @@ export async function downloadGeneratedPage(steps, text) {
    
             const key = input.name;
             if (variables.hasOwnProperty(key)) {
+
                variables[key] = input.value;
                console.log("Updated variables:", variables);
             } else {

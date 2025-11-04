@@ -1,6 +1,16 @@
 import { variableReader, parser } from "./parser.js";
 import { downloadGeneratedPage } from "./downloadPage.js";
 
+// Runtime logic (for interaction, navigation, etc.)
+import {
+   initializeInputHandling,
+   initializeQuestionButtons,
+   initializeNavigation,
+   executeShowIf,
+   updateInlineVariables,
+   executeCodeBlocks,
+} from "./procedureRuntime.js";
+
 document.addEventListener("DOMContentLoaded", () => {
    const button = document.getElementById("generateButton");
    if (button) button.addEventListener("click", generateProcedure);
@@ -13,11 +23,10 @@ function initializePage() {
    if (savedInput && inputBox) inputBox.value = savedInput;
 }
 
-function generateProcedure() {
+async function generateProcedure() {
    const inputBox = document.getElementById("inputBox");
    const buttonContainer = document.querySelector(".button-container");
    const inputText = inputBox.value.trim();
-
    if (!inputText) return;
 
    // Save input
@@ -31,11 +40,11 @@ function generateProcedure() {
    if (buttonContainer) buttonContainer.remove();
 
    // Apply black background and white text
-   document.body.style.backgroundColor = "#000";
-   document.body.style.color = "#fff";
-   document.body.style.margin = "0";
-   document.body.style.padding = "0";
-   document.body.style.fontFamily = "FiraCode Nerd Font Mono, monospace";
+   //  document.body.style.backgroundColor = "#000";
+   //  document.body.style.color = "#fff";
+   //  document.body.style.margin = "0";
+   //  document.body.style.padding = "0";
+   //  document.body.style.fontFamily = "FiraCode Nerd Font Mono, monospace";
 
    // Create Back button
    const backButton = document.createElement("button");
@@ -51,7 +60,6 @@ function generateProcedure() {
    backButton.style.cursor = "pointer";
    backButton.style.fontSize = "16px";
    backButton.onclick = restoreInputPage;
-
    document.body.appendChild(backButton);
 
    // Create Download button
@@ -68,7 +76,6 @@ function generateProcedure() {
    downloadButton.style.cursor = "pointer";
    downloadButton.style.fontSize = "16px";
    downloadButton.onclick = () => downloadGeneratedPage([inputText], inputText);
-
    document.body.appendChild(downloadButton);
 
    // Create main content area
@@ -77,14 +84,81 @@ function generateProcedure() {
    websiteContent.style.padding = "20px";
    document.body.appendChild(websiteContent);
 
-   // Parse and render
-   window.storedString = inputText;
-   window.finished = true;
-   window.currentStep = 0;
-   window.allSteps = 1;
+   // === Set up parser and runtime state ===
+   // window.storedString = inputText;
+   try {
+      window.finished = true;
+      window.currentStep = 0;
+      window.allSteps = 1;
 
-   variableReader(inputText);
-   parser([inputText], 0);
+      // 1) Read variables from the input text
+      const variables = variableReader(inputText);
+
+      console.log("[inputText]: ", [inputText]);
+
+      // 2) Parse the pseudo-code into DOM elements
+      let parsedContent = await parser([inputText], 0, inputText);
+
+      // 3) Append parsed content into the page (live)
+      appendParsedSteps(parsedContent, websiteContent);
+      // Hide all steps except step0 (mirror download behavior)
+      const totalSteps = document.querySelectorAll('[class^="step"]').length;
+      for (let i = 0; i < totalSteps; i++) {
+         const step = document.querySelector(".step" + i);
+         if (step) step.style.display = i === 0 ? "block" : "none";
+      }
+
+      // 4) Initialize runtime logic
+      initializeInputHandling(variables);
+      initializeQuestionButtons(variables);
+
+      executeCodeBlocks(variables);
+      updateInlineVariables(variables);
+      executeShowIf(variables);
+
+      initializeNavigation({
+         executeAllCodeBlocks: () => executeCodeBlocks(variables),
+         updateInlineVariables: () => updateInlineVariables(variables),
+         evaluateConditions: () => executeShowIf(variables),
+      });
+   } catch (error) {
+      console.log("[generateProcedure] error: ", error);
+   }
+}
+
+function appendParsedSteps(parsedContent, container) {
+   let currentStep = [];
+   let stepCounter = 0;
+
+   function flush() {
+      const stepDiv = document.createElement("div");
+      stepDiv.classList.add("step" + stepCounter);
+
+      currentStep.forEach((el) => stepDiv.appendChild(el.cloneNode(true)));
+
+      const nav = document.createElement("div");
+      nav.classList.add("nav-buttons");
+      stepDiv.appendChild(nav);
+
+      console.log("StepDiv: ", stepDiv);
+      container.appendChild(stepDiv);
+      stepCounter++;
+      currentStep = [];
+   }
+
+   // parsedContent[0] should be your array of DOM elements
+   (parsedContent[0] || []).forEach((el) => {
+      if (el.classList.contains("line-separator")) {
+         console.log("Flush function runs ");
+         flush();
+      } else {
+         currentStep.push(el);
+      }
+   });
+
+   // Flush any remaining elements
+   // !WARNING Need to check if it creates empty steps
+   if (currentStep.length > 0) flush();
 }
 
 function restoreInputPage() {

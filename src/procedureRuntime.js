@@ -158,10 +158,14 @@ export function initializeNavigation({
       }
    }
 
-   // Initialize once the page is fully loaded
-   window.addEventListener("load", () => {
+   if (
+      document.readyState === "complete" ||
+      document.readyState === "interactive"
+   ) {
       setTimeout(initializePage, 0);
-   });
+   } else {
+      window.addEventListener("load", () => setTimeout(initializePage, 0));
+   }
 }
 
 //showifs
