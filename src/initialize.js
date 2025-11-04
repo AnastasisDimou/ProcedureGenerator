@@ -39,12 +39,11 @@ async function generateProcedure() {
    if (inputBox) inputBox.remove();
    if (buttonContainer) buttonContainer.remove();
 
-   // Apply black background and white text
-   //  document.body.style.backgroundColor = "#000";
-   //  document.body.style.color = "#fff";
-   //  document.body.style.margin = "0";
-   //  document.body.style.padding = "0";
-   //  document.body.style.fontFamily = "FiraCode Nerd Font Mono, monospace";
+   // add simple.css
+   const link = document.createElement("link");
+   link.rel = "stylesheet";
+   link.href = "https://cdn.simplecss.org/simple.css";
+   document.head.appendChild(link);
 
    // Create Back button
    const backButton = document.createElement("button");
@@ -162,6 +161,12 @@ function appendParsedSteps(parsedContent, container) {
 }
 
 function restoreInputPage() {
+   // === Remove Simple.css if present ===
+   const simpleCss = document.querySelector(
+      'link[href="https://cdn.simplecss.org/simple.css"]'
+   );
+   if (simpleCss) simpleCss.remove();
+
    // Reset body completely
    document.body.innerHTML = `
     <textarea id="inputBox" placeholder="Type here...">${
