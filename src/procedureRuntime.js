@@ -77,10 +77,10 @@ export function initializeNavigation({
          if (step) step.style.display = i === 0 ? "block" : "none";
       }
 
-      appendNavButtons();
       executeAllCodeBlocks();
       updateInlineVariables();
       evaluateConditions();
+      appendNavButtons();
    }
 
    function showStep(index) {
@@ -114,7 +114,28 @@ export function initializeNavigation({
       const buttonContainer = step?.querySelector(".nav-buttons");
       if (!buttonContainer) return;
 
-      const isEndStep = step.querySelector(".end") !== null;
+      function hasVisibleEnd(step) {
+         if (!step) return false;
+
+         const ends = step.querySelectorAll(".end");
+
+         function isEffectivelyVisible(el) {
+            if (!el) return false;
+            let node = el;
+            while (node && node.nodeType === 1) {
+               const style = getComputedStyle(node);
+               if (style.display === "none" || style.visibility === "hidden") {
+                  return false;
+               }
+               node = node.parentElement;
+            }
+            return true;
+         }
+
+         return Array.from(ends).some((end) => isEffectivelyVisible(end));
+      }
+
+      const isEndStep = hasVisibleEnd(step);
 
       // End message
       if (isEndStep) {
