@@ -158,7 +158,7 @@ export function parseSection(
    let savedText = "";
    let boolForAppendingText = false;
    let end = false;
-   let i;   
+   let i;
 
    for (i = start; i < step.length; i++) {
       let line = step[i];
@@ -198,10 +198,10 @@ export function parseSection(
                savedText,
                contentContainer
             );
-            const showIfContainer = document.createElement("div");
-            showIfContainer.classList.add("if");
+            // const showIfContainer = document.createElement("div");
+            // showIfContainer.classList.add("if");
             i = createShowif(i, step, contentContainer);
-            contentContainer.appendChild(showIfContainer);
+            // contentContainer.appendChild(showIfContainer);
             boolForAppendingText = false;
             break;
          }
@@ -277,6 +277,14 @@ function createFinalBackButton(parsedContent, steps) {
 }
 
 function createShowif(i, step, contentContainer) {
+   console.log("Creating showif block at line:", i);
+   if (/\{.*\}/.test(step[i].trim()) && step[i].includes("showif")) {
+      console.warn(
+         `[WARNING] ShowIf block starts and ends on same line (${i}): "${step[
+            i
+         ].trim()}"`
+      );
+   }
    const end = findBlockEnd(step, i);
    const regexForDeleting = /showif|\{|\}/g;
    step[i] = step[i].replace(regexForDeleting, "");
@@ -287,6 +295,7 @@ function createShowif(i, step, contentContainer) {
    showIfContainer.setAttribute("data-expression", firstLine);
 
    let innerContainer = document.createElement("div");
+   innerContainer.classList.add("if-inner");
    showIfContainer.appendChild(innerContainer);
 
    let savedText = "";
@@ -370,6 +379,7 @@ function createShowif(i, step, contentContainer) {
             break;
          }
          case "text": {
+            console.log("Adding line to showif at: ", i);
             if (line.trim() !== "}" && line.trim() !== firstLine) {
                savedText += line + "\n";
                boolForAppendingText = true;
@@ -378,13 +388,17 @@ function createShowif(i, step, contentContainer) {
          }
       }
    }
-
+   console.log(
+      "Text get's appended to showif:",
+      savedText + "on container:",
+      innerContainer
+   );
    savedText = appendText(boolForAppendingText, savedText, innerContainer);
    contentContainer.appendChild(showIfContainer);
    return i;
 }
 
-function appendText(flag, text, container = stepContent) {
+function appendText(flag, text, container) {
    if (flag) {
       container.appendChild(createText(text.trim(), ""));
       return "";

@@ -170,44 +170,49 @@ export function initializeNavigation({
 
 //showifs
 export function executeShowIf(variables) {
-   console.log("[evaluateConditions] Running...");
+   console.log("[executeShowIf] Evaluating conditions...");
 
-   // Select only visible steps
-   const visibleSteps = [
-      ...document.querySelectorAll('[class^="step"]'),
-   ].filter((div) => div.style.display !== "none");
+   // Get ALL if-blocks on the page.
+   // We'll internally filter them by step.
+   const allIfBlocks = document.querySelectorAll(".if");
 
-   visibleSteps.forEach((step) => {
-      const ifBlocks = step.querySelectorAll(".if");
+   allIfBlocks.forEach((ifDiv) => {
+      // Find nearest parent whose class starts with "step"
+      const stepParent = ifDiv.closest('[class^="step"]');
 
-      ifBlocks.forEach((ifDiv) => {
-         const expr = ifDiv.getAttribute("data-expression")?.trim();
-         if (!expr) return;
+      if (!stepParent) {
+         console.warn("[executeShowIf] ifDiv has no step parent:", ifDiv);
+         return;
+      }
 
-         let result = false;
+      // Only evaluate blocks inside the VISIBLE current step
+      const visible = getComputedStyle(stepParent).display !== "none";
+      if (!visible) return;
 
-         try {
-            const evaluate = new Function(
-               ...Object.keys(variables),
-               `try { 
-                  return ${expr}; 
-               } catch (error) {
-                  if (error instanceof ReferenceError) return true;
-                  throw error;
-               }`
-            );
+      const expr = ifDiv.getAttribute("data-expression")?.trim();
+      console.log(`[executeShowIf] Expression: "${expr}"`);
+      if (!expr) return;
 
-            result = evaluate(...Object.values(variables));
-            console.log(
-               `[evaluateConditions] Expression: "${expr}" → Result: ${result}`
-            );
-         } catch (e) {
-            console.warn("Failed to evaluate condition:", expr, e);
-         }
+      let result = false;
 
-         // Show or hide conditional blocks
-         ifDiv.style.display = result ? "block" : "none";
-      });
+      try {
+         const evaluate = new Function(
+            ...Object.keys(variables),
+            `try {
+               return (${expr});
+            } catch (error) {
+               if (error instanceof ReferenceError) return false;
+               throw error;
+            }`
+         );
+
+         result = !!evaluate(...Object.values(variables));
+         console.log(`→ Result for "${expr}" = ${result}`);
+      } catch (e) {
+         console.warn(`[executeShowIf] FAILED: "${expr}"`, e);
+      }
+
+      ifDiv.style.display = result ? "block" : "none";
    });
 }
 
