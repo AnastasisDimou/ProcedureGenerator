@@ -282,7 +282,7 @@ export function parseSection(
             line = replaceConstVars(line.trim(), constVars);
             if (line.trim() !== "}") {
                // savedText += line + "\n";
-               appendText(true, line, contentContainer);
+               appendText(true, line.trim(), contentContainer);
             }
             break;
          }
@@ -326,12 +326,20 @@ function createFinalBackButton(parsedContent, steps) {
 
 function createShowif(i, step, contentContainer) {
    console.log("Creating showif block at line:", i);
-   if (/\{.*\}/.test(step[i].trim()) && step[i].includes("showif")) {
+   const originalLine = step[i];
+   const trimmed = originalLine.trim();
+
+   // If showif, opening and closing brace are on the same line,
+   // strip the closing brace so findBlockEnd doesn't treat this
+   // line as the end of the block.
+   if (/\{.*\}/.test(trimmed) && trimmed.includes("showif")) {
       console.warn(
-         `[WARNING] ShowIf block starts and ends on same line (${i}): "${step[
-            i
-         ].trim()}"`
+         `[WARNING] ShowIf block starts and ends on same line (${i}): "${trimmed}"`
       );
+      const idx = originalLine.lastIndexOf("}");
+      if (idx !== -1) {
+         step[i] = originalLine.slice(0, idx) + originalLine.slice(idx + 1);
+      }
    }
    const end = findBlockEnd(step, i);
    const regexForDeleting = /showif|\{|\}/g;
@@ -462,20 +470,14 @@ function createShowif(i, step, contentContainer) {
             break;
          }
          case "text": {
-            console.log("Adding line to showif at: ", i);
             if (line.trim() !== "}" && line.trim() !== firstLine) {
-               savedText += line + "\n";
-               boolForAppendingText = true;
+               // savedText += line + "\n";
+               appendText(true, line.trim(), innerContainer);
             }
             break;
          }
       }
    }
-   console.log(
-      "Text get's appended to showif:",
-      savedText + "on container:",
-      innerContainer
-   );
    savedText = appendText(boolForAppendingText, savedText, innerContainer);
    contentContainer.appendChild(showIfContainer);
    return i;
