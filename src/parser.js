@@ -8,6 +8,14 @@ import { renderHistory } from "./renderHistory.js";
 let stepContent;
 const variables = {};
 
+// Map from DSL key to CSS class
+const STYLE_MAP = {
+   warning_style: "warning-styling",
+   error_style: "error-styling",
+   info_style: "info-styling",
+   success_style: "success-styling",
+};
+
 export function variableReader(textFile) {
    const firstRegex = /\[[a-z_][a-z0-9_]*\]\s*(\([^)]*\))?\s*$/gim;
    const varMatches = Array.from(textFile.matchAll(firstRegex));
@@ -130,6 +138,10 @@ function classifyLine(line) {
    if (trimmed.startsWith("{end}")) return "end";
    if (trimmed === "---") return "separator";
    if (trimmed === "}") return "block_end";
+   if (
+      /^\[(warning_style|error_style|info_style|success_style)\]/i.test(trimmed)
+   )
+      return "styled_text";
    return "text";
 }
 
@@ -205,6 +217,42 @@ export function parseSection(
             boolForAppendingText = false;
             break;
          }
+         case "styled_text": {
+            // flush any plain text we were buffering
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               contentContainer
+            );
+            boolForAppendingText = false;
+
+            const trimmed = line.trim();
+            const match = trimmed.match(/^\[([a-z_]+)\]\s*(.*)$/i);
+            if (!match) {
+               console.warn("[styled_text] Could not parse line:", line);
+               break;
+            }
+
+            const styleKey = match[1].toLowerCase(); // warning_style, etc.
+            let textPart = match[2] || "";
+
+            // apply const vars to the text part
+            textPart = replaceConstVars(textPart, constVars);
+
+            const p = document.createElement("p");
+            p.classList.add("block-styling"); // common base
+
+            const cssClass = STYLE_MAP[styleKey];
+            if (cssClass) {
+               p.classList.add(cssClass);
+            } else {
+               console.warn("[styled_text] Unknown style key:", styleKey);
+            }
+
+            p.textContent = textPart;
+            contentContainer.appendChild(p);
+            break;
+         }
          case "end": {
             savedText = appendText(
                boolForAppendingText,
@@ -233,8 +281,8 @@ export function parseSection(
          case "text": {
             line = replaceConstVars(line.trim(), constVars);
             if (line.trim() !== "}") {
-               savedText += line + "\n";
-               boolForAppendingText = true;
+               // savedText += line + "\n";
+               appendText(true, line, contentContainer);
             }
             break;
          }
@@ -366,6 +414,41 @@ function createShowif(i, step, contentContainer) {
             boolForAppendingText = false;
             break;
          }
+
+         case "styled_text": {
+            savedText = appendText(
+               boolForAppendingText,
+               savedText,
+               innerContainer
+            );
+            boolForAppendingText = false;
+
+            const trimmed = line.trim();
+            const match = trimmed.match(/^\[([a-z_]+)\]\s*(.*)$/i);
+            if (!match) {
+               console.warn("[styled_text] Could not parse showif line:", line);
+               break;
+            }
+
+            const styleKey = match[1].toLowerCase(); // e.g. warning_style
+            const textPart = match[2] || "";
+
+            const p = document.createElement("p");
+            p.classList.add("block-styling");
+            const cssClass = STYLE_MAP[styleKey];
+            if (cssClass) {
+               p.classList.add(cssClass);
+            } else {
+               console.warn(
+                  "[styled_text] Unknown style key in showif:",
+                  styleKey
+               );
+            }
+            p.textContent = textPart; // {var} will be handled later by updateInlineVariables
+            innerContainer.appendChild(p);
+            break;
+         }
+
          case "end": {
             savedText = appendText(
                boolForAppendingText,
@@ -399,8 +482,12 @@ function createShowif(i, step, contentContainer) {
 }
 
 function appendText(flag, text, container) {
-   if (flag) {
-      container.appendChild(createText(text.trim(), ""));
+   const trimmed = text.trim();
+
+   // Always append on empty line (paragraph break),
+   // or when the flag tells us to flush.
+   if (flag || trimmed === "") {
+      container.appendChild(createText(trimmed, ""));
       return "";
    }
    return text;

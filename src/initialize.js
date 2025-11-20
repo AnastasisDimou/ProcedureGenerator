@@ -45,6 +45,42 @@ async function generateProcedure() {
    link.href = "https://cdn.simplecss.org/simple.css";
    document.head.appendChild(link);
 
+   const style = document.createElement("style");
+   style.id = "procedure-styles"; // optional, useful if you ever want to remove it
+   style.textContent = `
+  .block-styling {
+    padding: 15px;
+    border: 1px solid transparent;
+    margin-bottom: 20px;
+    border-radius: 4px;
+  }
+
+  .warning-styling {
+    color: #856404;
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+  }
+
+  .error-styling {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+  }
+
+  .info-styling {
+    color: #0c5460;
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+  }
+
+  .success-styling {
+    color: #3c763d;
+    background-color: #dff0d8;
+    border-color: #d6e9c6;
+  }
+`;
+   document.head.appendChild(style);
+
    // Create Back button
    const backButton = document.createElement("button");
    backButton.innerText = "Back";
