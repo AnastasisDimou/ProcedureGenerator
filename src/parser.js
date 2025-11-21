@@ -254,6 +254,7 @@ export function parseSection(
             break;
          }
          case "end": {
+            console.log("End of step reached at line:", i);
             savedText = appendText(
                boolForAppendingText,
                savedText,
@@ -279,6 +280,7 @@ export function parseSection(
             break;
          }
          case "text": {
+            console.log("Processing text line:", line);
             line = replaceConstVars(line.trim(), constVars);
             if (line.trim() !== "}") {
                // savedText += line + "\n";
@@ -341,14 +343,16 @@ function createShowif(i, step, contentContainer) {
          step[i] = originalLine.slice(0, idx) + originalLine.slice(idx + 1);
       }
    }
+
    const end = findBlockEnd(step, i);
    const regexForDeleting = /showif|\{|\}/g;
    step[i] = step[i].replace(regexForDeleting, "");
-   const firstLine = step[i].trim();
+   const firstLine = step[i].trim(); // original DSL
+   const expression = normalizeShowIfExpression(firstLine); // JS expression
 
    let showIfContainer = document.createElement("div");
    showIfContainer.classList.add("if");
-   showIfContainer.setAttribute("data-expression", firstLine);
+   showIfContainer.setAttribute("data-expression", expression);
 
    let innerContainer = document.createElement("div");
    innerContainer.classList.add("if-inner");
@@ -411,10 +415,10 @@ function createShowif(i, step, contentContainer) {
             sep.classList.add("line-separator");
             contentContainer.appendChild(sep);
 
-            // start new showIf block with same expression
+            // start new showIf block with same (normalized) expression
             showIfContainer = document.createElement("div");
             showIfContainer.classList.add("if");
-            showIfContainer.setAttribute("data-expression", firstLine);
+            showIfContainer.setAttribute("data-expression", expression);
 
             innerContainer = document.createElement("div");
             showIfContainer.appendChild(innerContainer);
@@ -452,7 +456,7 @@ function createShowif(i, step, contentContainer) {
                   styleKey
                );
             }
-            p.textContent = textPart; // {var} will be handled later by updateInlineVariables
+            p.textContent = textPart; // {var} will be handled later
             innerContainer.appendChild(p);
             break;
          }
@@ -471,7 +475,6 @@ function createShowif(i, step, contentContainer) {
          }
          case "text": {
             if (line.trim() !== "}" && line.trim() !== firstLine) {
-               // savedText += line + "\n";
                appendText(true, line.trim(), innerContainer);
             }
             break;
@@ -481,6 +484,18 @@ function createShowif(i, step, contentContainer) {
    savedText = appendText(boolForAppendingText, savedText, innerContainer);
    contentContainer.appendChild(showIfContainer);
    return i;
+}
+
+function normalizeShowIfExpression(expr) {
+   // Count all '=' characters
+   const equalsMatches = expr.match(/=/g) || [];
+   if (equalsMatches.length !== 1) return expr;
+
+   // If it's part of ==, ===, <=, >=, != then don't touch it
+   if (/==/.test(expr) || /[!<>]=/.test(expr)) return expr;
+
+   // Otherwise we assume user meant equality, so turn "=" into "=="
+   return expr.replace("=", "==");
 }
 
 function appendText(flag, text, container) {

@@ -117,7 +117,14 @@ export function initializeNavigation({
       function hasVisibleEnd(step) {
          if (!step) return false;
 
-         const ends = step.querySelectorAll(".end");
+         // 1) Reset anything we previously hid due to an {end}
+         step.querySelectorAll('[data-hidden-by-end="true"]').forEach((el) => {
+            el.style.display = "";
+            el.removeAttribute("data-hidden-by-end");
+         });
+
+         const ends = Array.from(step.querySelectorAll(".end"));
+         if (!ends.length) return false;
 
          function isEffectivelyVisible(el) {
             if (!el) return false;
@@ -132,7 +139,47 @@ export function initializeNavigation({
             return true;
          }
 
-         return Array.from(ends).some((end) => isEffectivelyVisible(end));
+         // 2) Filter to only ends that are actually visible (respecting showifs)
+         const visibleEnds = ends.filter(isEffectivelyVisible);
+         if (!visibleEnds.length) return false;
+
+         // 3) Find the earliest visible .end in DOM order
+         let earliest = visibleEnds[0];
+         visibleEnds.forEach((end) => {
+            if (end === earliest) return;
+            const pos = earliest.compareDocumentPosition(end);
+            // If 'end' is before 'earliest', update earliest
+            if (pos & Node.DOCUMENT_POSITION_PRECEDING) {
+               earliest = end;
+            }
+         });
+
+         // 4) Hide everything after that earliest visible .end inside this step,
+         //    regardless of parent, EXCEPT .nav-buttons and its children.
+         const walker = document.createTreeWalker(
+            step,
+            NodeFilter.SHOW_ELEMENT,
+            null,
+            false
+         );
+
+         let node;
+         let pastEnd = false;
+         while ((node = walker.nextNode())) {
+            if (node === earliest) {
+               pastEnd = true;
+               continue;
+            }
+            if (!pastEnd) continue;
+
+            // Don't hide navigation controls
+            if (node.closest(".nav-buttons")) continue;
+
+            node.dataset.hiddenByEnd = "true";
+            node.style.display = "none";
+         }
+
+         return true;
       }
 
       const isEndStep = hasVisibleEnd(step);
