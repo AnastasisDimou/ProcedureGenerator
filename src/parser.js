@@ -1,3 +1,5 @@
+// file: parser.js
+
 import { findBlockEnd } from "./codeExecution.js";
 import { runUserCode } from "./codeExecution.js";
 import { createText } from "./procedures.js";
@@ -7,6 +9,9 @@ import { renderHistory } from "./renderHistory.js";
 
 let stepContent;
 const variables = {};
+
+// NEW: per-step RepeatStep conditions
+const repeatStepConditions = {}; // key: stepNumber, value: expression string
 
 // Map from DSL key to CSS class
 const STYLE_MAP = {
@@ -33,13 +38,20 @@ export function variableReader(textFile) {
 }
 
 export function splitSteps(textFile) {
-   // splits the file into stpes based on --- and #
-   // const steps = textFile.split(/(?:---|\n# )/);
-   const steps = textFile.split(/(?:---)/);
+   const rawSteps = textFile.split(/(?:---)/);
+   const stepsArray = [];
 
-   const stepsArray = steps.map((step) => {
-      return step.trim();
-   });
+   for (const rawStep of rawSteps) {
+      const step = rawStep.trim();
+      if (!step) continue; // skip empty
+
+      // skip steps that contain Variables[]
+      if (/variables\[\]\s*:?/i.test(step)) {
+         continue;
+      }
+
+      stepsArray.push(step);
+   }
    return stepsArray;
 }
 
@@ -47,10 +59,19 @@ function questionParsing(line, container) {
    const regexForMultipleChoice =
       /^(.*?)\[(\w+)\]\s*\(\s*One of:\s*([\w\s,]+)\)$/;
 
-   if (regexForMultipleChoice.test(line)) {
-      const str = line.substring(2).trim();
+   // Normalize line: strip indentation, then strip "Q:" prefix
+   const trimmed = line.trim();
+   const str = trimmed.replace(/^Q:\s*/i, ""); // remove leading "Q:" or "q:"
+
+   // Multiple choice?
+   if (regexForMultipleChoice.test(str)) {
       const regexForSpliting = /^(.*)\[(.*?)\]\s*\(\s*One of:\s*(.*?)\)$/;
       const match = str.match(regexForSpliting);
+      if (!match) {
+         console.warn("[questionParsing] MCQ line did not match:", str);
+         return;
+      }
+
       const questions = match[3].split(",").map((option) => option.trim());
 
       if (match[2] in variables) {
@@ -67,9 +88,14 @@ function questionParsing(line, container) {
          );
       }
    } else {
-      const str = line.substring(2).trim();
+      // Normal input question
       const regexForSpliting = /^(.*?)\[(.*?)\]\s*(?:\(([^)]+)\))?$/;
       const match = str.match(regexForSpliting);
+      if (!match) {
+         console.warn("[questionParsing] Question line did not match:", str);
+         return;
+      }
+
       let type = match[3] || "text";
 
       if (match[2] in variables) {
@@ -98,7 +124,6 @@ export function constVariableReader(textFile) {
       constVars[varName] = value;
    }
 
-   console.log(constVars);
    return constVars;
 }
 
@@ -108,7 +133,12 @@ export async function parser(steps, startIndex, textFile) {
    let constVars = constVariableReader(textFile);
    const linesPerStep = steps.map((step) => step.split("\n"));
    const contentContainer = document.getElementById("website_content");
-   parsedContent = []; // clear it
+   parsedContent = [];
+
+   // Clear previous RepeatStep conditions
+   for (const key in repeatStepConditions) {
+      delete repeatStepConditions[key];
+   }
 
    for (let index = startIndex; index < linesPerStep.length; index++) {
       const step = linesPerStep[index];
@@ -116,23 +146,34 @@ export async function parser(steps, startIndex, textFile) {
       finished = false;
 
       const res = parseSection(step, index, 0, contentContainer, constVars);
+
+      // If parseSection signals global end (res === 0), stop.
       if (res === 0) {
          createFinalBackButton(parsedContent, steps);
          break;
       }
+
+      const isLastStep = index === linesPerStep.length - 1;
+      if (!isLastStep) {
+         const sep = document.createElement("div");
+         sep.classList.add("line-separator");
+         sep.setAttribute("data-step-index", index);
+         contentContainer.appendChild(sep);
+      }
    }
 
-   // Save everything that was appended to website_content
    parsedContent[0] = Array.from(contentContainer.children);
-
-   contentContainer.innerHTML = ""; // prevents double inclusion
-
+   contentContainer.innerHTML = "";
    return parsedContent;
 }
 
 function classifyLine(line) {
    const trimmed = line.trim();
    if (trimmed.startsWith("Q:")) return "question";
+
+   // Step-level repeat directive
+   if (/^\{\s*RepeatStep\b/i.test(trimmed)) return "repeat_step_header";
+
    if (trimmed === "{") return "codeblock_start";
    if (/^\{\s*showif/.test(trimmed)) return "showif_start";
    if (trimmed.startsWith("{end}")) return "end";
@@ -148,13 +189,8 @@ function classifyLine(line) {
 function replaceConstVars(text, constVars) {
    return text.replace(/\{const\s+([a-z_][a-z0-9_]*)}/gi, (match, varName) => {
       if (constVars[varName] !== undefined) {
-         console.log(
-            `[constVar] Replacing {const ${varName}} with:`,
-            constVars[varName]
-         );
          return constVars[varName];
       } else {
-         console.warn(`[constVar] No match found for: {const ${varName}}`);
          return match;
       }
    });
@@ -210,15 +246,45 @@ export function parseSection(
                savedText,
                contentContainer
             );
-            // const showIfContainer = document.createElement("div");
-            // showIfContainer.classList.add("if");
             i = createShowif(i, step, contentContainer);
-            // contentContainer.appendChild(showIfContainer);
             boolForAppendingText = false;
             break;
          }
+         case "repeat_step_header": {
+            // Parse header, store per-step condition, render nothing
+            let header = line.trim(); // e.g. "{RepeatStep Until last_server == \"Yes\"}"
+
+            if (header.startsWith("{")) {
+               header = header.slice(1).trim();
+            }
+            if (header.endsWith("}")) {
+               header = header.slice(0, -1).trim();
+            }
+
+            const lower = header.toLowerCase();
+            const untilIndex = lower.indexOf("until");
+            if (untilIndex === -1) {
+               console.warn(
+                  "[repeat_step_header] No 'Until' found in header:",
+                  header
+               );
+               break;
+            }
+
+            let conditionRaw = header.slice(untilIndex + "until".length).trim();
+            if (!conditionRaw) {
+               console.warn(
+                  "[repeat_step_header] Empty condition in header:",
+                  header
+               );
+               break;
+            }
+
+            const expression = normalizeShowIfExpression(conditionRaw);
+            repeatStepConditions[stepNumber] = expression;
+            break;
+         }
          case "styled_text": {
-            // flush any plain text we were buffering
             savedText = appendText(
                boolForAppendingText,
                savedText,
@@ -233,14 +299,12 @@ export function parseSection(
                break;
             }
 
-            const styleKey = match[1].toLowerCase(); // warning_style, etc.
+            const styleKey = match[1].toLowerCase();
             let textPart = match[2] || "";
-
-            // apply const vars to the text part
             textPart = replaceConstVars(textPart, constVars);
 
             const p = document.createElement("p");
-            p.classList.add("block-styling"); // common base
+            p.classList.add("block-styling");
 
             const cssClass = STYLE_MAP[styleKey];
             if (cssClass) {
@@ -254,7 +318,6 @@ export function parseSection(
             break;
          }
          case "end": {
-            console.log("End of step reached at line:", i);
             savedText = appendText(
                boolForAppendingText,
                savedText,
@@ -280,10 +343,8 @@ export function parseSection(
             break;
          }
          case "text": {
-            console.log("Processing text line:", line);
             line = replaceConstVars(line.trim(), constVars);
             if (line.trim() !== "}") {
-               // savedText += line + "\n";
                appendText(true, line.trim(), contentContainer);
             }
             break;
@@ -293,7 +354,8 @@ export function parseSection(
       if (end) break;
    }
 
-   savedText = appendText(boolForAppendingText, savedText, contentContainer);
+   // You had this commented out; leaving it as-is:
+   // savedText = appendText(boolForAppendingText, savedText, contentContainer);
    return end ? 0 : i;
 }
 
@@ -304,36 +366,27 @@ function createFinalBackButton(parsedContent, steps) {
       return;
    }
 
-   // Create a back button container
    const buttonContainer = document.createElement("div");
    buttonContainer.style.display = "flex";
-   // buttonContainer.style.justifyContent = "center";
    buttonContainer.style.marginTop = "20px";
 
-   // Create Back button
    const backButton = document.createElement("button");
    backButton.textContent = "Back";
 
-   // Append Back button to container
    buttonContainer.appendChild(backButton);
    container.appendChild(buttonContainer);
 
-   // Back button event listener
    backButton.addEventListener("click", () => {
-      buttonContainer.remove(); // Remove the final Back button
-      parsedContent.pop(); // Remove last rendered step
-      renderHistory(parsedContent, steps); // Re-render previous step
+      buttonContainer.remove();
+      parsedContent.pop();
+      renderHistory(parsedContent, steps);
    });
 }
 
 function createShowif(i, step, contentContainer) {
-   console.log("Creating showif block at line:", i);
    const originalLine = step[i];
    const trimmed = originalLine.trim();
 
-   // If showif, opening and closing brace are on the same line,
-   // strip the closing brace so findBlockEnd doesn't treat this
-   // line as the end of the block.
    if (/\{.*\}/.test(trimmed) && trimmed.includes("showif")) {
       console.warn(
          `[WARNING] ShowIf block starts and ends on same line (${i}): "${trimmed}"`
@@ -415,7 +468,6 @@ function createShowif(i, step, contentContainer) {
             sep.classList.add("line-separator");
             contentContainer.appendChild(sep);
 
-            // start new showIf block with same (normalized) expression
             showIfContainer = document.createElement("div");
             showIfContainer.classList.add("if");
             showIfContainer.setAttribute("data-expression", expression);
@@ -426,7 +478,6 @@ function createShowif(i, step, contentContainer) {
             boolForAppendingText = false;
             break;
          }
-
          case "styled_text": {
             savedText = appendText(
                boolForAppendingText,
@@ -435,14 +486,14 @@ function createShowif(i, step, contentContainer) {
             );
             boolForAppendingText = false;
 
-            const trimmed = line.trim();
-            const match = trimmed.match(/^\[([a-z_]+)\]\s*(.*)$/i);
+            const trimmedLine = line.trim();
+            const match = trimmedLine.match(/^\[([a-z_]+)\]\s*(.*)$/i);
             if (!match) {
                console.warn("[styled_text] Could not parse showif line:", line);
                break;
             }
 
-            const styleKey = match[1].toLowerCase(); // e.g. warning_style
+            const styleKey = match[1].toLowerCase();
             const textPart = match[2] || "";
 
             const p = document.createElement("p");
@@ -456,11 +507,10 @@ function createShowif(i, step, contentContainer) {
                   styleKey
                );
             }
-            p.textContent = textPart; // {var} will be handled later
+            p.textContent = textPart;
             innerContainer.appendChild(p);
             break;
          }
-
          case "end": {
             savedText = appendText(
                boolForAppendingText,
@@ -487,22 +537,17 @@ function createShowif(i, step, contentContainer) {
 }
 
 function normalizeShowIfExpression(expr) {
-   // Count all '=' characters
    const equalsMatches = expr.match(/=/g) || [];
    if (equalsMatches.length !== 1) return expr;
 
-   // If it's part of ==, ===, <=, >=, != then don't touch it
    if (/==/.test(expr) || /[!<>]=/.test(expr)) return expr;
 
-   // Otherwise we assume user meant equality, so turn "=" into "=="
    return expr.replace("=", "==");
 }
 
 function appendText(flag, text, container) {
    const trimmed = text.trim();
 
-   // Always append on empty line (paragraph break),
-   // or when the flag tells us to flush.
    if (flag || trimmed === "") {
       container.appendChild(createText(trimmed, ""));
       return "";
@@ -510,11 +555,15 @@ function appendText(flag, text, container) {
    return text;
 }
 
-// Your existing helper functions:
 export function joinToString(step, start, end) {
    return step.slice(start, end + 1).join("\n");
 }
 
 export function joinToArray(step, start, end) {
    return step.slice(start, end + 1);
+}
+
+// NEW: expose the per-step repeat conditions to initialize.js
+export function getRepeatStepConditions() {
+   return repeatStepConditions;
 }

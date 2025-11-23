@@ -1,3 +1,5 @@
+// file: procedureRuntime.js
+
 export function initializeInputHandling(variables) {
    function handleInput(input) {
       if (input.value.trim() !== "" && input.checkValidity()) {
@@ -26,7 +28,6 @@ export function initializeInputHandling(variables) {
       });
    }
 
-   // Call immediately to attach listeners
    enhanceInputs();
 }
 
@@ -148,7 +149,6 @@ export function initializeNavigation({
          visibleEnds.forEach((end) => {
             if (end === earliest) return;
             const pos = earliest.compareDocumentPosition(end);
-            // If 'end' is before 'earliest', update earliest
             if (pos & Node.DOCUMENT_POSITION_PRECEDING) {
                earliest = end;
             }
@@ -172,7 +172,6 @@ export function initializeNavigation({
             }
             if (!pastEnd) continue;
 
-            // Don't hide navigation controls
             if (node.closest(".nav-buttons")) continue;
 
             node.dataset.hiddenByEnd = "true";
@@ -207,7 +206,7 @@ export function initializeNavigation({
          buttonContainer.appendChild(backButton);
       }
 
-      // Next button
+      // Next button (always exists; RepeatStep logic in initialize.js may intercept it)
       if (!isEndStep && currentStep < getTotalSteps() - 1) {
          const nextButton = document.createElement("button");
          nextButton.textContent = "Next";
@@ -236,24 +235,19 @@ export function initializeNavigation({
    }
 }
 
-//showifs
+// showifs
 export function executeShowIf(variables) {
    console.log("[executeShowIf] Evaluating conditions...");
 
-   // Get ALL if-blocks on the page.
-   // We'll internally filter them by step.
    const allIfBlocks = document.querySelectorAll(".if");
 
    allIfBlocks.forEach((ifDiv) => {
-      // Find nearest parent whose class starts with "step"
       const stepParent = ifDiv.closest('[class^="step"]');
-
       if (!stepParent) {
          console.warn("[executeShowIf] ifDiv has no step parent:", ifDiv);
          return;
       }
 
-      // Only evaluate blocks inside the VISIBLE current step
       const visible = getComputedStyle(stepParent).display !== "none";
       if (!visible) return;
 
@@ -261,25 +255,7 @@ export function executeShowIf(variables) {
       console.log(`[executeShowIf] Expression: "${expr}"`);
       if (!expr) return;
 
-      let result = false;
-
-      try {
-         const evaluate = new Function(
-            ...Object.keys(variables),
-            `try {
-               return (${expr});
-            } catch (error) {
-               if (error instanceof ReferenceError) return false;
-               throw error;
-            }`
-         );
-
-         result = !!evaluate(...Object.values(variables));
-         console.log(`→ Result for "${expr}" = ${result}`);
-      } catch (e) {
-         console.warn(`[executeShowIf] FAILED: "${expr}"`, e);
-      }
-
+      const result = evaluateExpression(expr, variables);
       ifDiv.style.display = result ? "block" : "none";
    });
 }
@@ -304,7 +280,6 @@ export function updateInlineVariables(variables) {
       );
       let node;
       while ((node = walker.nextNode())) {
-         // Cache original text the first time
          if (!node.parentElement.hasAttribute("data-original")) {
             node.parentElement.setAttribute("data-original", node.textContent);
          }
@@ -316,8 +291,6 @@ export function updateInlineVariables(variables) {
 }
 
 export function executeCodeBlocks(variables) {
-   console.log("Get's in the function");
-
    const visibleSteps = [
       ...document.querySelectorAll('[class^="step"]'),
    ].filter((div) => div.style.display !== "none");
@@ -346,6 +319,27 @@ export function executeCodeBlocks(variables) {
          div.style.display = "none";
       });
    });
+}
 
-   console.log("Variables after execution:", variables);
+export function evaluateExpression(expr, variables) {
+   if (!expr) return false;
+   const trimmed = expr.trim();
+   if (!trimmed) return false;
+
+   try {
+      const evaluate = new Function(
+         ...Object.keys(variables),
+         `try {
+            return (${trimmed});
+         } catch (error) {
+            if (error instanceof ReferenceError) return false;
+            throw error;
+         }`
+      );
+
+      return !!evaluate(...Object.values(variables));
+   } catch (e) {
+      console.warn("[evaluateExpression] FAILED:", expr, e);
+      return false;
+   }
 }

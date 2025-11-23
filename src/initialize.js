@@ -1,4 +1,9 @@
-import { variableReader, parser } from "./parser.js";
+import {
+   variableReader,
+   parser,
+   splitSteps,
+   getRepeatStepConditions, // NEW
+} from "./parser.js";
 import { downloadGeneratedPage } from "./downloadPage.js";
 
 // Runtime logic (for interaction, navigation, etc.)
@@ -9,6 +14,7 @@ import {
    executeShowIf,
    updateInlineVariables,
    executeCodeBlocks,
+   evaluateExpression,
 } from "./procedureRuntime.js";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -46,7 +52,7 @@ async function generateProcedure() {
    document.head.appendChild(link);
 
    const style = document.createElement("style");
-   style.id = "procedure-styles"; // optional, useful if you ever want to remove it
+   style.id = "procedure-styles";
    style.textContent = `
   .block-styling {
     padding: 15px;
@@ -119,8 +125,6 @@ async function generateProcedure() {
    websiteContent.style.padding = "20px";
    document.body.appendChild(websiteContent);
 
-   // === Set up parser and runtime state ===
-   // window.storedString = inputText;
    try {
       window.finished = true;
       window.currentStep = 0;
@@ -129,13 +133,17 @@ async function generateProcedure() {
       // 1) Read variables from the input text
       const variables = variableReader(inputText);
 
-      console.log("[inputText]: ", [inputText]);
+      const steps = splitSteps(inputText);
 
       // 2) Parse the pseudo-code into DOM elements
-      let parsedContent = await parser([inputText], 0, inputText);
+      let parsedContent = await parser(steps, 0, inputText);
+
+      // NEW: get per-step RepeatStep conditions from parser
+      const repeatStepConditions = getRepeatStepConditions();
 
       // 3) Append parsed content into the page (live)
-      appendParsedSteps(parsedContent, websiteContent);
+      appendParsedSteps(parsedContent, websiteContent, repeatStepConditions);
+
       // Hide all steps except step0 (mirror download behavior)
       const totalSteps = document.querySelectorAll('[class^="step"]').length;
       for (let i = 0; i < totalSteps; i++) {
@@ -156,12 +164,15 @@ async function generateProcedure() {
          updateInlineVariables: () => updateInlineVariables(variables),
          evaluateConditions: () => executeShowIf(variables),
       });
+
+      // NEW: wire up whole-step RepeatStep logic on the standard Next button
+      setupRepeatStepNavigation(variables);
    } catch (error) {
       console.log("[generateProcedure] error: ", error);
    }
 }
 
-function appendParsedSteps(parsedContent, container) {
+function appendParsedSteps(parsedContent, container, repeatStepConditions) {
    let currentStep = [];
    let stepCounter = 0;
 
@@ -169,41 +180,125 @@ function appendParsedSteps(parsedContent, container) {
       const stepDiv = document.createElement("div");
       stepDiv.classList.add("step" + stepCounter);
 
+      // Attach RepeatStep condition (if any) to the step wrapper
+      if (
+         repeatStepConditions &&
+         Object.prototype.hasOwnProperty.call(repeatStepConditions, stepCounter)
+      ) {
+         stepDiv.setAttribute(
+            "data-repeat-step-until",
+            repeatStepConditions[stepCounter]
+         );
+      }
+
       currentStep.forEach((el) => stepDiv.appendChild(el.cloneNode(true)));
 
       const nav = document.createElement("div");
       nav.classList.add("nav-buttons");
       stepDiv.appendChild(nav);
 
-      console.log("StepDiv: ", stepDiv);
       container.appendChild(stepDiv);
       stepCounter++;
       currentStep = [];
    }
 
-   // parsedContent[0] should be your array of DOM elements
    (parsedContent[0] || []).forEach((el) => {
       if (el.classList.contains("line-separator")) {
-         console.log("Flush function runs ");
          flush();
       } else {
          currentStep.push(el);
       }
    });
 
-   // Flush any remaining elements
-   // !WARNING Need to check if it creates empty steps
    if (currentStep.length > 0) flush();
 }
 
+// === RepeatStep runtime ===
+
+let repeatStepNavInitialized = false;
+let currentRepeatStepVariables = null;
+
+function clearStepIteration(stepDiv, variables) {
+   if (!stepDiv || !variables) return;
+
+   // Clear inputs and associated variables
+   stepDiv.querySelectorAll("input").forEach((input) => {
+      if (input.type === "checkbox" || input.type === "radio") {
+         input.checked = false;
+      } else {
+         input.value = "";
+      }
+      const key = input.name;
+      if (key && Object.prototype.hasOwnProperty.call(variables, key)) {
+         variables[key] = "";
+      }
+   });
+
+   // Clear multiple-choice questions and their variables
+   stepDiv.querySelectorAll(".question-block").forEach((block) => {
+      const key = block.getAttribute("data-var");
+      if (key && Object.prototype.hasOwnProperty.call(variables, key)) {
+         variables[key] = "";
+      }
+      block.querySelectorAll("button").forEach((button) => {
+         button.style.backgroundColor = "";
+         button.style.outline = "";
+      });
+   });
+}
+
+function setupRepeatStepNavigation(variables) {
+   // Keep latest variables reference for the global listener
+   currentRepeatStepVariables = variables;
+
+   if (repeatStepNavInitialized) return;
+   repeatStepNavInitialized = true;
+
+   // Capture-phase so we can stop the default Next handler if needed
+   document.addEventListener(
+      "click",
+      (event) => {
+         const btn = event.target.closest(".nav-buttons button");
+         if (!btn) return;
+
+         if (btn.textContent.trim().toLowerCase() !== "next") return;
+
+         const stepDiv = btn.closest('[class^="step"]');
+         if (!stepDiv) return;
+
+         const expr = stepDiv.getAttribute("data-repeat-step-until");
+         if (!expr) return; // no RepeatStep on this step
+
+         const vars = currentRepeatStepVariables;
+         if (!vars) return;
+
+         const ok = evaluateExpression(expr, vars);
+
+         if (!ok) {
+            // Condition NOT satisfied → repeat this step instead of moving on
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.stopImmediatePropagation) {
+               event.stopImmediatePropagation();
+            }
+
+            clearStepIteration(stepDiv, vars);
+            executeCodeBlocks(vars);
+            updateInlineVariables(vars);
+            executeShowIf(vars);
+         }
+         // If ok === true, do nothing here → normal Next handler runs
+      },
+      true
+   );
+}
+
 function restoreInputPage() {
-   // === Remove Simple.css if present ===
    const simpleCss = document.querySelector(
       'link[href="https://cdn.simplecss.org/simple.css"]'
    );
    if (simpleCss) simpleCss.remove();
 
-   // Reset body completely
    document.body.innerHTML = `
     <textarea id="inputBox" placeholder="Type here...">${
        localStorage.getItem("storedInput") || ""
@@ -213,7 +308,6 @@ function restoreInputPage() {
     </div>
   `;
 
-   // Reapply original style
    const style = document.createElement("style");
    style.textContent = `
     html, body {
@@ -254,7 +348,6 @@ function restoreInputPage() {
   `;
    document.head.appendChild(style);
 
-   // Rebind Generate button
    document
       .getElementById("generateButton")
       .addEventListener("click", generateProcedure);
