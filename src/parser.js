@@ -1,5 +1,3 @@
-// file: parser.js
-
 import { findBlockEnd } from "./codeExecution.js";
 import { runUserCode } from "./codeExecution.js";
 import { createText } from "./procedures.js";

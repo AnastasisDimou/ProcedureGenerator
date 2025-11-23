@@ -50,16 +50,22 @@ export async function downloadGeneratedPage(steps, text) {
       </script>
    `;
 
-   const inputQuestionsJS = `
-   <script defer>
+   const runtimeScript = `
+<script>
+   // Restore variables from the generator
+   const variables = ${JSON.stringify(variables)};
+   console.log("Variables restored:", variables);
+
+   // ====== Inline versions of proceduresRuntime.js functions ======
+
+   function initializeInputHandling(variables) {
       function handleInput(input) {
          if (input.value.trim() !== "" && input.checkValidity()) {
             input.style.outline = "2px solid #e64833";
             input.style.border = "2px solid #e64833";
-   
-            const key = input.name;
-            if (variables.hasOwnProperty(key)) {
 
+            const key = input.name;
+            if (Object.prototype.hasOwnProperty.call(variables, key)) {
                variables[key] = input.value;
                console.log("Updated variables:", variables);
             } else {
@@ -67,9 +73,9 @@ export async function downloadGeneratedPage(steps, text) {
             }
          }
       }
-   
+
       function enhanceInputs() {
-         document.querySelectorAll("input").forEach(input => {
+         document.querySelectorAll("input").forEach((input) => {
             input.addEventListener("keydown", (e) => {
                if (e.key === "Enter") {
                   e.preventDefault();
@@ -79,74 +85,63 @@ export async function downloadGeneratedPage(steps, text) {
             input.addEventListener("blur", () => handleInput(input));
          });
       }
-   
-      document.addEventListener("DOMContentLoaded", () => {
-         enhanceInputs();
-      });
-   </script>
-   `;
 
-   const buttonScript = `
-   <script defer>
-   document.addEventListener("DOMContentLoaded", () => {
-      const containers = document.querySelectorAll('#website_content .question-block');
-   
-      containers.forEach(container => {
+      enhanceInputs();
+   }
+
+   function initializeQuestionButtons(variables) {
+      const containers = document.querySelectorAll("#website_content .question-block");
+
+      containers.forEach((container) => {
          const key = container.getAttribute("data-var");
-   
+         if (!key) return;
+
          container.addEventListener("click", (e) => {
-            const clickedButton = e.target.closest('button');
+            const clickedButton = e.target.closest("button");
             if (!clickedButton) return;
-   
-            if (!variables.hasOwnProperty(key)) {
-               console.log("Skipped click, no variable for:", key);
-               return;
-            }
-   
-            const buttonsInContainer = container.querySelectorAll('button');
-            buttonsInContainer.forEach(btn => {
+            if (!Object.prototype.hasOwnProperty.call(variables, key)) return;
+
+            const allButtons = container.querySelectorAll("button");
+            allButtons.forEach((btn) => {
                btn.style.backgroundColor = "";
                btn.style.outline = "";
             });
-   
+
             clickedButton.style.backgroundColor = "#e64833";
             clickedButton.style.outline = "2px solid #ffffff";
-   
             variables[key] = clickedButton.innerText;
-            console.log("Updated variables:", variables);
+            console.log("Updated variable " + key + ":", variables[key]);
          });
       });
-   });
-   </script>
-   `;
+   }
 
-   const navScript = `
-   <script defer>
+   function initializeNavigation({ executeAllCodeBlocks, updateInlineVariables, evaluateConditions }) {
       let currentStep = 0;
       const visitedSteps = [0];
-   
+
       function getTotalSteps() {
          return document.querySelectorAll('[class^="step"]').length;
       }
-   
+
       function initializePage() {
          const totalSteps = getTotalSteps();
          for (let i = 0; i < totalSteps; i++) {
             const step = document.querySelector(".step" + i);
             if (step) step.style.display = i === 0 ? "block" : "none";
          }
-         appendNavButtons();
+
          executeAllCodeBlocks();
          updateInlineVariables();
          evaluateConditions();
+         appendNavButtons();
       }
-   
+
       function showStep(index) {
          const step = document.querySelector(".step" + index);
          if (!step) return;
          step.style.display = "block";
       }
-   
+
       function hideStepsAfter(index) {
          const total = getTotalSteps();
          for (let i = index + 1; i < total; i++) {
@@ -154,7 +149,7 @@ export async function downloadGeneratedPage(steps, text) {
             if (step) step.style.display = "none";
          }
       }
-   
+
       function scrollToStep(index) {
          const step = document.querySelector(".step" + index);
          if (!step) return;
@@ -162,18 +157,79 @@ export async function downloadGeneratedPage(steps, text) {
          step.focus({ preventScroll: false });
          step.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-   
+
       function appendNavButtons() {
-         document.querySelectorAll(".nav-buttons").forEach(container => {
+         document.querySelectorAll(".nav-buttons").forEach((container) => {
             container.innerHTML = "";
          });
-   
+
          const step = document.querySelector(".step" + currentStep);
-         const buttonContainer = step.querySelector(".nav-buttons");
+         const buttonContainer = step?.querySelector(".nav-buttons");
          if (!buttonContainer) return;
-   
-         const isEndStep = step.querySelector(".end") !== null;
-   
+
+         function hasVisibleEnd(step) {
+            if (!step) return false;
+
+            // 1) Reset anything previously hidden due to an {end}
+            step.querySelectorAll('[data-hidden-by-end="true"]').forEach((el) => {
+               el.style.display = "";
+               el.removeAttribute("data-hidden-by-end");
+            });
+
+            const ends = Array.from(step.querySelectorAll(".end"));
+            if (!ends.length) return false;
+
+            function isEffectivelyVisible(el) {
+               if (!el) return false;
+               let node = el;
+               while (node && node.nodeType === 1) {
+                  const style = getComputedStyle(node);
+                  if (style.display === "none" || style.visibility === "hidden") {
+                     return false;
+                  }
+                  node = node.parentElement;
+               }
+               return true;
+            }
+
+            const visibleEnds = ends.filter(isEffectivelyVisible);
+            if (!visibleEnds.length) return false;
+
+            let earliest = visibleEnds[0];
+            visibleEnds.forEach((end) => {
+               if (end === earliest) return;
+               const pos = earliest.compareDocumentPosition(end);
+               if (pos & Node.DOCUMENT_POSITION_PRECEDING) {
+                  earliest = end;
+               }
+            });
+
+            const walker = document.createTreeWalker(
+               step,
+               NodeFilter.SHOW_ELEMENT,
+               null,
+               false
+            );
+
+            let node;
+            let pastEnd = false;
+            while ((node = walker.nextNode())) {
+               if (node === earliest) {
+                  pastEnd = true;
+                  continue;
+               }
+               if (!pastEnd) continue;
+               if (node.closest(".nav-buttons")) continue;
+
+               node.dataset.hiddenByEnd = "true";
+               node.style.display = "none";
+            }
+
+            return true;
+         }
+
+         const isEndStep = hasVisibleEnd(step);
+
          if (isEndStep) {
             const endMessage = document.createElement("div");
             endMessage.textContent = "End of procedure";
@@ -181,7 +237,7 @@ export async function downloadGeneratedPage(steps, text) {
             endMessage.style.marginBottom = "10px";
             buttonContainer.appendChild(endMessage);
          }
-   
+
          if (visitedSteps.length > 1) {
             const backButton = document.createElement("button");
             backButton.textContent = "Back";
@@ -190,11 +246,11 @@ export async function downloadGeneratedPage(steps, text) {
                currentStep = visitedSteps[visitedSteps.length - 1];
                hideStepsAfter(currentStep);
                scrollToStep(currentStep);
-               appendNavButtons(); // No updates on Back
+               appendNavButtons();
             });
             buttonContainer.appendChild(backButton);
          }
-   
+
          if (!isEndStep && currentStep < getTotalSteps() - 1) {
             const nextButton = document.createElement("button");
             nextButton.textContent = "Next";
@@ -203,7 +259,7 @@ export async function downloadGeneratedPage(steps, text) {
                visitedSteps.push(currentStep);
                showStep(currentStep);
                scrollToStep(currentStep);
-   
+
                executeAllCodeBlocks();
                updateInlineVariables();
                evaluateConditions();
@@ -212,65 +268,84 @@ export async function downloadGeneratedPage(steps, text) {
             buttonContainer.appendChild(nextButton);
          }
       }
-   
-      window.addEventListener("load", () => {
+
+      if (document.readyState === "complete" || document.readyState === "interactive") {
          setTimeout(initializePage, 0);
-      });
-   </script>
-   `;
-
-   const executeShowIf = `
-   <script defer>
-      function evaluateConditions() {
-         console.log("[evaluateConditions] Running...");
-         const visibleSteps = [...document.querySelectorAll('[class^="step"]')]
-            .filter(div => div.style.display !== 'none');
-
-         visibleSteps.forEach(step => {
-            const ifBlocks = step.querySelectorAll('.if');
-            ifBlocks.forEach(ifDiv => {
-               const expr = ifDiv.getAttribute('data-expression')?.trim();
-               if (!expr) return;
-
-               let result = false;
-
-               try {
-                  const evaluate = new Function(
-                     ...Object.keys(variables),
-                     \`try { return \${expr}; } catch (error) {
-                        if (error instanceof ReferenceError) return true;
-                        throw error;
-                     }\`
-                  );
-                  result = evaluate(...Object.values(variables));
-                  console.log(\`[evaluateConditions] Expression: "\${expr}" → Result: \${result}\`);
-               } catch (e) {
-                  console.warn("Failed to evaluate condition:", expr, e);
-               }
-
-               // Hide or show the whole conditional block
-               ifDiv.style.display = result ? 'block' : 'none';
-            });
-         });
+      } else {
+         window.addEventListener("load", () => setTimeout(initializePage, 0));
       }
-   </script>
-`;
-
-   const executeInlineVariables = `
-<script defer>
-   function checkForCodeInLine(line) {
-      const regex = /\\{\\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*\\}/g;
-      return line.replace(regex, (_, varName) => variables[varName] ?? \`{\${varName}}\`);
    }
 
-   function updateInlineVariables() {
+   function evaluateExpression(expr, variables) {
+      if (!expr) return false;
+      const trimmed = expr.trim();
+      if (!trimmed) return false;
+
+      try {
+         const argNames = Object.keys(variables);
+         const fnBody =
+            "try {\\n" +
+            "   return (" + trimmed + ");\\n" +
+            "} catch (error) {\\n" +
+            "   if (error instanceof ReferenceError) return false;\\n" +
+            "   throw error;\\n" +
+            "}";
+
+         const evaluate = new Function(...argNames, fnBody);
+         return !!evaluate(...Object.values(variables));
+      } catch (e) {
+         console.warn("[evaluateExpression] FAILED:", expr, e);
+         return false;
+      }
+   }
+
+   function executeShowIf(variables) {
+      console.log("[executeShowIf] Evaluating conditions...");
+
+      const allIfBlocks = document.querySelectorAll(".if");
+
+      allIfBlocks.forEach((ifDiv) => {
+         const stepParent = ifDiv.closest('[class^="step"]');
+         if (!stepParent) {
+            console.warn("[executeShowIf] ifDiv has no step parent:", ifDiv);
+            return;
+         }
+
+         const visible = getComputedStyle(stepParent).display !== "none";
+         if (!visible) return;
+
+         const exprAttr = ifDiv.getAttribute("data-expression");
+         const expr = exprAttr ? exprAttr.trim() : "";
+         console.log('[executeShowIf] Expression: "' + expr + '"');
+         if (!expr) return;
+
+         const result = evaluateExpression(expr, variables);
+         ifDiv.style.display = result ? "block" : "none";
+      });
+   }
+
+   function updateInlineVariables(variables) {
+      function checkForCodeInLine(line) {
+         const regex = /\\{\\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*\\}/g;
+         return line.replace(regex, function(_, varName) {
+            if (Object.prototype.hasOwnProperty.call(variables, varName) && variables[varName] != null) {
+               return variables[varName];
+            }
+            return "{" + varName + "}";
+         });
+      }
+
       const divs = document.querySelectorAll("div:not(.if):not(.code)");
 
-      divs.forEach(div => {
-         const walker = document.createTreeWalker(div, NodeFilter.SHOW_TEXT, null, false);
+      divs.forEach((div) => {
+         const walker = document.createTreeWalker(
+            div,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+         );
          let node;
          while ((node = walker.nextNode())) {
-            // Cache original if not already stored
             if (!node.parentElement.hasAttribute("data-original")) {
                node.parentElement.setAttribute("data-original", node.textContent);
             }
@@ -280,42 +355,51 @@ export async function downloadGeneratedPage(steps, text) {
          }
       });
    }
+
+   function executeCodeBlocks(variables) {
+      console.log("[executeCodeBlocks] Running code blocks with variables:", variables);
+
+      const visibleSteps = Array.from(document.querySelectorAll('[class^="step"]'))
+         .filter((div) => div.style.display !== "none");
+
+      if (!visibleSteps.length) return;
+
+      const currentStepDiv = visibleSteps[visibleSteps.length - 1];
+      const codeBlocks = currentStepDiv.querySelectorAll("div.code");
+
+      codeBlocks.forEach((div) => {
+         const userCode = div.textContent.trim();
+         if (!userCode) return;
+
+         try {
+            const fnBody =
+               "// Run user code with 'vars' as the scope object\\n" +
+               "with (vars) {\\n" +
+               userCode +
+               "\\n}";
+
+            const wrapped = new Function("vars", fnBody);
+            wrapped(variables);
+         } catch (e) {
+            console.warn("Error evaluating code block:", userCode, e);
+         }
+
+         div.style.display = "none";
+      });
+
+      console.log("[executeCodeBlocks] Variables after execution:", variables);
+   }
+
+   // ====== Kick everything off ======
+   initializeInputHandling(variables);
+   initializeQuestionButtons(variables);
+   initializeNavigation({
+      executeAllCodeBlocks: function() { executeCodeBlocks(variables); },
+      updateInlineVariables: function() { updateInlineVariables(variables); },
+      evaluateConditions: function() { executeShowIf(variables); }
+   });
 </script>
 `;
-
-   const executeCodeBlocks = `
-   <script defer>
-      function executeAllCodeBlocks() {
-         console.log("Get's in the function");
-         const visibleSteps = [...document.querySelectorAll('[class^="step"]')]
-            .filter(div => div.style.display !== 'none');
-   
-         visibleSteps.forEach(step => {
-            const codeBlocks = step.querySelectorAll("div.code");
-   
-            codeBlocks.forEach(div => {
-               const userCode = div.textContent.trim();
-               if (!userCode) return;
-   
-               try {
-                  const wrappedFunction = new Function(
-                     ...Object.keys(variables),
-                     \`\${userCode}; return { \${Object.keys(variables).join(", ")} };\`
-                  );
-                  const updatedVariables = wrappedFunction(...Object.values(variables));
-                  Object.assign(variables, updatedVariables);
-               } catch (e) {
-                  console.warn("Error evaluating code block:", userCode, e);
-               }
-   
-               div.style.display = "none";
-            });
-         });
-   
-         console.log("Variables after execution:", variables);
-      }
-   </script>
-   `;
 
    const fullHTML = `
    <!DOCTYPE html>

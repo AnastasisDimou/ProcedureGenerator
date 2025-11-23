@@ -1,5 +1,3 @@
-// file: procedureRuntime.js
-
 export function initializeInputHandling(variables) {
    function handleInput(input) {
       if (input.value.trim() !== "" && input.checkValidity()) {
@@ -291,34 +289,47 @@ export function updateInlineVariables(variables) {
 }
 
 export function executeCodeBlocks(variables) {
+   console.log(
+      "[executeCodeBlocks] Running code blocks with variables:",
+      variables
+   );
+
+   // Get ALL visible steps (0..current), then pick the LAST one = current step
    const visibleSteps = [
       ...document.querySelectorAll('[class^="step"]'),
    ].filter((div) => div.style.display !== "none");
 
-   visibleSteps.forEach((step) => {
-      const codeBlocks = step.querySelectorAll("div.code");
+   if (!visibleSteps.length) return;
 
-      codeBlocks.forEach((div) => {
-         const userCode = div.textContent.trim();
-         if (!userCode) return;
+   const currentStepDiv = visibleSteps[visibleSteps.length - 1];
 
-         try {
-            const wrappedFunction = new Function(
-               ...Object.keys(variables),
-               `${userCode}; return { ${Object.keys(variables).join(", ")} };`
-            );
+   const codeBlocks = currentStepDiv.querySelectorAll("div.code");
 
-            const updatedVariables = wrappedFunction(
-               ...Object.values(variables)
-            );
-            Object.assign(variables, updatedVariables);
-         } catch (e) {
-            console.warn("Error evaluating code block:", userCode, e);
-         }
+   codeBlocks.forEach((div) => {
+      const userCode = div.textContent.trim();
+      if (!userCode) return;
 
-         div.style.display = "none";
-      });
+      try {
+         const wrapped = new Function(
+            "vars",
+            `
+            // Run user code with 'vars' as the scope object
+            with (vars) {
+               ${userCode}
+            }
+         `
+         );
+
+         wrapped(variables);
+      } catch (e) {
+         console.warn("Error evaluating code block:", userCode, e);
+      }
+
+      // Hide code block after running so it doesn't show up as text
+      div.style.display = "none";
    });
+
+   console.log("[executeCodeBlocks] Variables after execution:", variables);
 }
 
 export function evaluateExpression(expr, variables) {

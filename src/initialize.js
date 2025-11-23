@@ -132,6 +132,9 @@ async function generateProcedure() {
 
       // 1) Read variables from the input text
       const variables = variableReader(inputText);
+      console.log("Extracted variables: ");
+      console.log(JSON.parse(JSON.stringify(variables)));
+      window._vars = variables;
 
       const steps = splitSteps(inputText);
 
@@ -219,32 +222,26 @@ let repeatStepNavInitialized = false;
 let currentRepeatStepVariables = null;
 
 function clearStepIteration(stepDiv, variables) {
-   if (!stepDiv || !variables) return;
+   if (!stepDiv) return;
 
-   // Clear inputs and associated variables
+   // Clear inputs (UI only)
    stepDiv.querySelectorAll("input").forEach((input) => {
       if (input.type === "checkbox" || input.type === "radio") {
          input.checked = false;
       } else {
          input.value = "";
       }
-      const key = input.name;
-      if (key && Object.prototype.hasOwnProperty.call(variables, key)) {
-         variables[key] = "";
-      }
    });
 
-   // Clear multiple-choice questions and their variables
+   // Clear multiple-choice buttons (UI only)
    stepDiv.querySelectorAll(".question-block").forEach((block) => {
-      const key = block.getAttribute("data-var");
-      if (key && Object.prototype.hasOwnProperty.call(variables, key)) {
-         variables[key] = "";
-      }
       block.querySelectorAll("button").forEach((button) => {
          button.style.backgroundColor = "";
          button.style.outline = "";
       });
    });
+
+   // ⚠️ Do NOT touch `variables` here.
 }
 
 function setupRepeatStepNavigation(variables) {
