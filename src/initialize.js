@@ -116,7 +116,7 @@ async function generateProcedure() {
    downloadButton.style.borderRadius = "5px";
    downloadButton.style.cursor = "pointer";
    downloadButton.style.fontSize = "16px";
-   downloadButton.onclick = () => downloadGeneratedPage([inputText], inputText);
+   downloadButton.onclick = () => downloadGeneratedPage(inputText);
    document.body.appendChild(downloadButton);
 
    // Create main content area
@@ -138,8 +138,9 @@ async function generateProcedure() {
 
       const steps = splitSteps(inputText);
 
-      // 2) Parse the pseudo-code into DOM elements
-      let parsedContent = await parser(steps, 0, inputText);
+      // Use an off-DOM container for parsing
+      const tempContainer = document.createElement("div");
+      let parsedContent = await parser(steps, 0, inputText, tempContainer);
 
       // NEW: get per-step RepeatStep conditions from parser
       const repeatStepConditions = getRepeatStepConditions();

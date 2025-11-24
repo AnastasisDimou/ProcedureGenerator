@@ -127,16 +127,27 @@ export function constVariableReader(textFile) {
 
 let parsedContent = [];
 
-export async function parser(steps, startIndex, textFile) {
+export async function parser(steps, startIndex, textFile, contentContainer) {
    let constVars = constVariableReader(textFile);
    const linesPerStep = steps.map((step) => step.split("\n"));
-   const contentContainer = document.getElementById("website_content");
+
+   // If no container is provided, fall back to #website_content
+   // (keeps backward compatibility if something else calls parser)
+   if (!contentContainer) {
+      contentContainer =
+         document.getElementById("website_content") ||
+         document.createElement("div");
+   }
+
    parsedContent = [];
 
    // Clear previous RepeatStep conditions
    for (const key in repeatStepConditions) {
       delete repeatStepConditions[key];
    }
+
+   // Always start with a clean container
+   contentContainer.innerHTML = "";
 
    for (let index = startIndex; index < linesPerStep.length; index++) {
       const step = linesPerStep[index];
@@ -145,7 +156,6 @@ export async function parser(steps, startIndex, textFile) {
 
       const res = parseSection(step, index, 0, contentContainer, constVars);
 
-      // If parseSection signals global end (res === 0), stop.
       if (res === 0) {
          createFinalBackButton(parsedContent, steps);
          break;
