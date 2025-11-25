@@ -405,10 +405,12 @@ function createShowif(i, step, contentContainer) {
       }
    }
 
+   const exprLineIndex = i; // <--- remember which line holds the expression
    const end = findBlockEnd(step, i);
+
    const regexForDeleting = /showif|\{|\}/g;
    step[i] = step[i].replace(regexForDeleting, "");
-   const firstLine = step[i].trim(); // original DSL
+   const firstLine = step[i].trim(); // original DSL (without "showif", braces)
    const expression = normalizeShowIfExpression(firstLine); // JS expression
 
    let showIfContainer = document.createElement("div");
@@ -481,6 +483,7 @@ function createShowif(i, step, contentContainer) {
             showIfContainer.setAttribute("data-expression", expression);
 
             innerContainer = document.createElement("div");
+            innerContainer.classList.add("if-inner");
             showIfContainer.appendChild(innerContainer);
 
             boolForAppendingText = false;
@@ -532,13 +535,16 @@ function createShowif(i, step, contentContainer) {
             break;
          }
          case "text": {
-            if (line.trim() !== "}" && line.trim() !== firstLine) {
-               appendText(true, line.trim(), innerContainer);
+            const t = line.trim();
+            // skip only: the closing brace AND the *one* expression line
+            if (t !== "}" && i !== exprLineIndex) {
+               appendText(true, t, innerContainer);
             }
             break;
          }
       }
    }
+
    savedText = appendText(boolForAppendingText, savedText, innerContainer);
    contentContainer.appendChild(showIfContainer);
    return i;
